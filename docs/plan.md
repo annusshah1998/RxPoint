@@ -5,18 +5,21 @@ It lives only in `packages/config/product.json`; rename before public launch.
 
 ## Decisions so far
 
-| Question        | Decision                                                                                       |
-| --------------- | ---------------------------------------------------------------------------------------------- |
-| First market    | Pakistan, Punjab                                                                               |
-| Branches        | Single store first; every record carries a branch id so multi-branch is an add-on              |
-| Tills per store | One till for the pilot; a second till needs sync (M6)                                          |
-| Platform        | Desktop till (Tauri 2, Windows 10/11) plus a web dashboard later                               |
-| Team and pace   | One developer, part-time (~10–12 h/week)                                                       |
-| Pilot           | After M5, without cloud sync, with automatic local backups                                     |
-| Stack           | TypeScript everywhere; a thin Rust layer for SQLite and hardware; PostgreSQL in the cloud (M6) |
+| Question        | Decision                                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| First market    | Pakistan, Punjab                                                                                    |
+| Branches        | Single store first; every record carries a branch id so multi-branch is an add-on                   |
+| Tills per store | One till for the pilot; a second till needs sync (M6)                                               |
+| Platform        | Desktop till (Tauri 2, Windows 10/11) plus a web dashboard later                                    |
+| Team and pace   | One developer, part-time (~10–12 h/week)                                                            |
+| Pilot           | After M5, without cloud sync, with automatic local backups                                          |
+| Stack           | TypeScript everywhere; a thin Rust layer for SQLite and hardware; PostgreSQL in the cloud (M6)      |
+| Above-MRP sales | Warn, don't block                                                                                   |
+| Test hardware   | None yet: printing is off by default with an on-screen receipt preview; typed barcodes act as scans |
 
-Hardware assumed: 80mm ESC/POS thermal printer, USB barcode scanner in keyboard mode,
-cash drawer opened through the printer.
+Hardware assumed for the pilot: 80mm ESC/POS thermal printer, USB barcode scanner in keyboard
+mode, cash drawer opened through the printer. None is available for testing yet, so every
+feature must work and be testable without it.
 
 ## Milestones
 
