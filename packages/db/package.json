@@ -1,0 +1,22 @@
+{
+  "name": "@app/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@app/config": "workspace:*",
+    "@app/core": "workspace:*",
+    "kysely": "0.29.6",
+    "papaparse": "5.7.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/papaparse": "5.5.2"
+  }
+}
