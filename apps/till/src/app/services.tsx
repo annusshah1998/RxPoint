@@ -7,6 +7,8 @@ export interface Services {
   ctx: AppContext;
   store: StoreInfo;
   platform: Platform;
+  /** Logs out and returns to the login screen (Ctrl+L, idle, or the Lock button). */
+  lock: () => Promise<void>;
 }
 
 const ServicesContext = createContext<Services | null>(null);

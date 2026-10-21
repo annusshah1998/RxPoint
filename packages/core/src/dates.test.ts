@@ -6,6 +6,7 @@ import {
   formatExpiry,
   isIsoDate,
   localDate,
+  localTime,
   parseExpiry,
 } from './dates';
 
@@ -60,6 +61,8 @@ describe('date helpers', () => {
     const at = new Date('2026-10-21T20:00:00Z');
     expect(localDate(at, 'Asia/Karachi')).toBe('2026-10-22');
     expect(localDate(at, 'UTC')).toBe('2026-10-21');
+    expect(localTime(at, 'Asia/Karachi')).toBe('01:00');
+    expect(localTime(new Date('2026-10-21T09:10:00Z'), 'Asia/Karachi')).toBe('14:10');
   });
 });
 

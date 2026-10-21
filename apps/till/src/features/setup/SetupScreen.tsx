@@ -1,16 +1,17 @@
 import { PRODUCT } from '@app/config';
-import { setupStore, type ServiceContext, type Session } from '@app/db';
+import { setupStore, type ServiceContext, type SetupResult } from '@app/db';
 import { useState, type FormEvent } from 'react';
 import { errorMessage, fieldErrors } from '../../lib/errors';
 import { S } from '../../strings';
 import { Button, Field, Notice, TextInput } from '../../ui';
+import { PinInput } from '../auth/PinInput';
 
 export function SetupScreen({
   ctx,
   onDone,
 }: {
   ctx: ServiceContext;
-  onDone: (session: Session) => void;
+  onDone: (result: SetupResult) => void;
 }) {
   const [values, setValues] = useState({
     pharmacyName: '',
@@ -18,6 +19,8 @@ export function SetupScreen({
     phone: '',
     tillCode: 'T1',
     ownerName: '',
+    ownerPin: '',
+    ownerPinRepeat: '',
   });
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -43,7 +46,9 @@ export function SetupScreen({
         <div className="brand brand-large">{PRODUCT.name}</div>
         <h1 className="page-title">{S.setup.title}</h1>
         <p className="muted">{S.setup.intro}</p>
-        {error != null && <Notice tone="bad">{errorMessage(error)}</Notice>}
+        {error != null && Object.keys(fields).length === 0 && (
+          <Notice tone="bad">{errorMessage(error)}</Notice>
+        )}
         <Field label={S.setup.pharmacyName} error={fields.pharmacyName}>
           <TextInput value={values.pharmacyName} onChange={set('pharmacyName')} autoFocus />
         </Field>
@@ -61,6 +66,14 @@ export function SetupScreen({
         <Field label={S.setup.ownerName} error={fields.ownerName}>
           <TextInput value={values.ownerName} onChange={set('ownerName')} />
         </Field>
+        <div className="row">
+          <Field label={S.setup.ownerPin} hint={S.setup.ownerPinHint} error={fields.ownerPin}>
+            <PinInput value={values.ownerPin} onChange={set('ownerPin')} />
+          </Field>
+          <Field label={S.setup.ownerPinRepeat} error={fields.ownerPinRepeat}>
+            <PinInput value={values.ownerPinRepeat} onChange={set('ownerPinRepeat')} />
+          </Field>
+        </div>
         <Button type="submit" variant="primary" disabled={busy}>
           {S.setup.submit}
         </Button>

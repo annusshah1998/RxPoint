@@ -5,6 +5,7 @@ import { timestamp, type AppContext, type ServiceContext } from '../context';
 import type { Bool } from '../schema';
 import { optionalText, parseInput, requiredText } from '../validation';
 import { audit, insertRow, updateRow, type Tx } from '../writes';
+import { authorizeTx } from './guards';
 import { reindexProduct } from './search';
 
 // ---------------------------------------------------------------------------
@@ -453,6 +454,7 @@ export async function insertProductTx(
 export async function createProduct(ctx: AppContext, input: ProductInput): Promise<ProductDetail> {
   const data = parseInput(productInputSchema, input);
   const id = await ctx.db.transaction().execute(async (trx) => {
+    await authorizeTx(trx, ctx, 'catalog.edit');
     const productId = await insertProductTx(trx, ctx, data);
     await reindexProduct(trx, productId);
     return productId;
@@ -473,6 +475,7 @@ export async function updateProduct(
   const cache = newLookupCache();
 
   await ctx.db.transaction().execute(async (trx) => {
+    await authorizeTx(trx, ctx, 'catalog.edit');
     const now = timestamp(ctx);
     await assertTaxClass(trx, data.taxClassId);
     const manufacturerId = data.manufacturer
@@ -628,6 +631,7 @@ export async function setProductActive(
 ): Promise<void> {
   await requireProduct(ctx, id);
   await ctx.db.transaction().execute(async (trx) => {
+    await authorizeTx(trx, ctx, 'catalog.edit');
     const changed = await updateRow(trx, timestamp(ctx), 'product', id, {
       is_active: bool(active),
     });

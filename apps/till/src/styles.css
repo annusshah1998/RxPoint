@@ -106,9 +106,23 @@ code {
   color: #fff;
 }
 .sidebar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: auto;
   font-size: 12px;
   color: #9fbcba;
+}
+.sidebar-footer .muted {
+  color: #9fbcba;
+}
+.sidebar-footer .btn-ghost {
+  color: #e6f2f1;
+  border: 1px solid rgb(255 255 255 / 25%);
+}
+.sidebar-footer .btn-ghost:hover:not(:disabled) {
+  background: rgb(255 255 255 / 10%);
 }
 .main {
   overflow: auto;
@@ -639,6 +653,64 @@ progress {
   margin: 8px 0 4px;
 }
 
+/* Login --------------------------------------------------------------------- */
+.user-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+.user-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.user-tile:hover {
+  border-color: var(--border-strong);
+}
+.user-tile.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.user-name {
+  font-weight: 600;
+}
+.user-role {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pin-input {
+  max-width: 160px;
+  font-size: 20px;
+  letter-spacing: 6px;
+}
+.login-footer {
+  margin-top: 16px;
+  text-align: center;
+}
+.recovery-code {
+  margin: 20px 0;
+  padding: 16px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-align: center;
+  background: var(--surface-muted);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
 /* Modal --------------------------------------------------------------------- */
 .modal-backdrop {
   position: fixed;
@@ -665,4 +737,14 @@ progress {
 }
 .modal-header h2 {
   font-size: 18px;
+}
+
+/* Tables: extras ------------------------------------------------------------ */
+.row-muted td {
+  color: var(--text-muted);
+}
+.cell-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
 }

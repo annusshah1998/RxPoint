@@ -1,4 +1,12 @@
-import { AppError, nameKey } from '@app/core';
+import {
+  AppError,
+  generateRecoveryCode,
+  hashPin,
+  hashSecret,
+  nameKey,
+  normalizeRecoveryCode,
+  type UserRole,
+} from '@app/core';
 import { z } from 'zod';
 import {
   timestamp,
@@ -7,43 +15,56 @@ import {
   type ServiceContext,
   type Session,
 } from '../context';
-import { audit, insertRow } from '../writes';
+import { META, getMeta } from '../meta';
 import { optionalText, parseInput, requiredText } from '../validation';
+import { audit, insertRow } from '../writes';
+import { checkNewPin, pinText } from './pin-input';
 
-const META_KEYS = {
-  branchId: 'branch_id',
-  deviceId: 'device_id',
-  ownerUserId: 'owner_user_id',
-} as const;
-
-export const setupInputSchema = z.object({
-  pharmacyName: requiredText(120, 'Enter the pharmacy name'),
-  address: optionalText(200),
-  phone: optionalText(40),
-  tillCode: requiredText(10, 'Enter a short code for this till, e.g. T1').transform((v) =>
-    v.toUpperCase(),
-  ),
-  ownerName: requiredText(80, 'Enter the owner’s name'),
-});
+export const setupInputSchema = z
+  .object({
+    pharmacyName: requiredText(120, 'Enter the pharmacy name'),
+    address: optionalText(200),
+    phone: optionalText(40),
+    tillCode: requiredText(10, 'Enter a short code for this till, e.g. T1')
+      .transform((v) => v.toUpperCase())
+      .refine(
+        (v) => /^[A-Z][A-Z0-9]{0,9}$/.test(v),
+        'Use letters and digits, starting with a letter',
+      ),
+    ownerName: requiredText(80, 'Enter the owner’s name'),
+    ownerPin: pinText,
+    ownerPinRepeat: pinText,
+  })
+  .superRefine((d, ctx) =>
+    checkNewPin(ctx, d.ownerPin, d.ownerPinRepeat, { owner: true, field: 'ownerPin' }),
+  );
 
 export type SetupInput = z.input<typeof setupInputSchema>;
 
-/** The session saved on this till, or null if setup hasn't run yet. */
-export async function loadSession(ctx: ServiceContext): Promise<Session | null> {
-  const rows = await ctx.db.selectFrom('local_meta').selectAll().execute();
-  const meta = new Map(rows.map((row) => [row.key, row.value]));
-  const branchId = meta.get(META_KEYS.branchId);
-  const deviceId = meta.get(META_KEYS.deviceId);
-  const userId = meta.get(META_KEYS.ownerUserId);
-  if (!branchId || !deviceId || !userId) return null;
-  // Until PIN login arrives (M2) the owner is the acting user.
-  return { branchId, deviceId, userId };
+/** Which branch and till this installation is, or null if setup hasn't run yet. */
+export async function loadDevice(
+  ctx: ServiceContext,
+): Promise<{ branchId: string; deviceId: string } | null> {
+  const branchId = await getMeta(ctx.db, META.branchId);
+  const deviceId = await getMeta(ctx.db, META.deviceId);
+  return branchId && deviceId ? { branchId, deviceId } : null;
 }
 
-/** First run: creates the store, this till and the owner account. */
-export async function setupStore(ctx: ServiceContext, input: SetupInput): Promise<Session> {
+export interface SetupResult {
+  /** The owner, logged in. */
+  session: Session;
+  /** Shown once: lets the owner reset a forgotten PIN. Only its hash is stored. */
+  recoveryCode: string;
+}
+
+/** First run: creates the store, this till and the owner account with a PIN. */
+export async function setupStore(ctx: ServiceContext, input: SetupInput): Promise<SetupResult> {
   const data = parseInput(setupInputSchema, input);
-  if (await loadSession(ctx)) throw new AppError('INVALID_STATE', 'This till is already set up');
+  if (await loadDevice(ctx)) throw new AppError('INVALID_STATE', 'This till is already set up');
+
+  const recoveryCode = generateRecoveryCode();
+  const pinHash = await hashPin(data.ownerPin, ctx.pinIterations);
+  const recoveryHash = await hashSecret(normalizeRecoveryCode(recoveryCode), ctx.pinIterations);
 
   const now = timestamp(ctx);
   const session: Session = { branchId: ctx.newId(), deviceId: ctx.newId(), userId: ctx.newId() };
@@ -74,7 +95,7 @@ export async function setupStore(ctx: ServiceContext, input: SetupInput): Promis
       id: session.userId,
       name: data.ownerName,
       role: 'owner',
-      pin_hash: null,
+      pin_hash: pinHash,
       is_active: 1,
       created_at: now,
       updated_at: now,
@@ -92,9 +113,10 @@ export async function setupStore(ctx: ServiceContext, input: SetupInput): Promis
     await trx
       .insertInto('local_meta')
       .values([
-        { key: META_KEYS.branchId, value: session.branchId },
-        { key: META_KEYS.deviceId, value: session.deviceId },
-        { key: META_KEYS.ownerUserId, value: session.userId },
+        { key: META.branchId, value: session.branchId },
+        { key: META.deviceId, value: session.deviceId },
+        { key: META.ownerUserId, value: session.userId },
+        { key: META.recoveryHash, value: recoveryHash },
       ])
       .execute();
     await audit(trx, app, {
@@ -105,21 +127,35 @@ export async function setupStore(ctx: ServiceContext, input: SetupInput): Promis
     });
   });
 
-  return session;
+  return { session, recoveryCode };
+}
+
+/** The pharmacy's name, for the login screen (before anyone has logged in). */
+export async function getStoreName(ctx: ServiceContext): Promise<string> {
+  const device = await loadDevice(ctx);
+  if (!device) return '';
+  const branch = await ctx.db
+    .selectFrom('branch')
+    .select('name')
+    .where('id', '=', device.branchId)
+    .executeTakeFirst();
+  return branch?.name ?? '';
 }
 
 export interface StoreInfo {
   branchName: string;
   branchAddress: string | null;
+  branchPhone: string | null;
   tillCode: string;
   userName: string;
+  userRole: UserRole;
 }
 
 export async function getStoreInfo(ctx: AppContext): Promise<StoreInfo> {
   const { branchId, deviceId, userId } = ctx.session;
   const branch = await ctx.db
     .selectFrom('branch')
-    .select(['name', 'address'])
+    .select(['name', 'address', 'phone'])
     .where('id', '=', branchId)
     .executeTakeFirst();
   const device = await ctx.db
@@ -129,7 +165,7 @@ export async function getStoreInfo(ctx: AppContext): Promise<StoreInfo> {
     .executeTakeFirst();
   const user = await ctx.db
     .selectFrom('app_user')
-    .select('name')
+    .select(['name', 'role'])
     .where('id', '=', userId)
     .executeTakeFirst();
   if (!branch || !device || !user) {
@@ -138,8 +174,10 @@ export async function getStoreInfo(ctx: AppContext): Promise<StoreInfo> {
   return {
     branchName: branch.name,
     branchAddress: branch.address,
+    branchPhone: branch.phone,
     tillCode: device.code,
     userName: user.name,
+    userRole: user.role,
   };
 }
 

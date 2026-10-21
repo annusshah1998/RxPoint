@@ -7,13 +7,15 @@ export type Route =
   | { name: 'product'; id: string }
   | { name: 'product-edit'; id: string }
   | { name: 'stock' }
-  | { name: 'import' };
+  | { name: 'import' }
+  | { name: 'staff' };
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   const [section, id, action] = parts;
   if (section === 'stock') return { name: 'stock' };
   if (section === 'import') return { name: 'import' };
+  if (section === 'staff') return { name: 'staff' };
   if (section === 'products' && id === 'new') return { name: 'product-new' };
   if (section === 'products' && id && action === 'edit') return { name: 'product-edit', id };
   if (section === 'products' && id) return { name: 'product', id };
@@ -34,6 +36,8 @@ export function routeHash(route: Route): string {
       return '#/stock';
     case 'import':
       return '#/import';
+    case 'staff':
+      return '#/staff';
   }
 }
 

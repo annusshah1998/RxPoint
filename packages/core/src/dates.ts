@@ -111,6 +111,16 @@ export function formatExpiry(date: IsoDate): string {
   return day === daysInMonth(year, month) ? label : `${day} ${label}`;
 }
 
+/** The clock time at `at` in the store's time zone, as 24-hour "HH:MM". */
+export function localTime(at: Date, timeZone: string = MARKET.timeZone): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(at);
+}
+
 /** The calendar date at `at` in the store's time zone. Expiry checks use this, not UTC. */
 export function localDate(at: Date, timeZone: string = MARKET.timeZone): IsoDate {
   // en-CA formats as YYYY-MM-DD.

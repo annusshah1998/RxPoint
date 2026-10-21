@@ -62,6 +62,42 @@ const ROLE_PERMISSIONS: Record<UserRole, ReadonlySet<Permission>> = {
   inventory: new Set<Permission>(['catalog.edit', 'stock.adjust', 'import.run']),
 };
 
+/**
+ * Things done at the counter that a cashier may do with a pharmacist's or the owner's PIN.
+ * Everything else (back-office work) needs someone with the role to log in themselves.
+ */
+export const APPROVABLE_PERMISSIONS = [
+  'sale.price_override',
+  'sale.controlled',
+  'sale.void',
+  'sale.return',
+  'sale.return_late',
+  'drawer.no_sale',
+  'cash.pay_out_large',
+  'clock.override',
+] as const satisfies readonly Permission[];
+export type ApprovablePermission = (typeof APPROVABLE_PERMISSIONS)[number];
+
+/** What a PIN approval can cover: an approvable permission, or a discount above the cashier's cap. */
+export type ApprovalKind = ApprovablePermission | 'sale.discount';
+
+export function isApprovable(permission: Permission): permission is ApprovablePermission {
+  return (APPROVABLE_PERMISSIONS as readonly Permission[]).includes(permission);
+}
+
+/** "a pharmacist or the owner", for messages about who can approve. */
+export function approverPhrase(roles: readonly UserRole[]): string {
+  const words: Record<UserRole, string> = {
+    owner: 'the owner',
+    pharmacist: 'a pharmacist',
+    cashier: 'a cashier',
+    inventory: 'an inventory clerk',
+  };
+  const ordered = [...roles].sort((a, b) => (a === 'owner' ? 1 : b === 'owner' ? -1 : 0));
+  const list = ordered.map((r) => words[r]);
+  return list.length <= 2 ? list.join(' or ') : `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`;
+}
+
 /** Whether a role may do something without anyone else's approval. */
 export function can(role: UserRole, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].has(permission);

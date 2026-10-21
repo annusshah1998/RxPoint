@@ -22,6 +22,7 @@ import type { BatchSource } from '../schema';
 import { optionalText, parseInput, requiredText } from '../validation';
 import { audit, insertRow, type Tx } from '../writes';
 import { requireProduct } from './catalog';
+import { authorizeTx } from './guards';
 
 const moneyOrNull = z
   .number()
@@ -115,6 +116,7 @@ export async function addOpeningStock(
   }
 
   return ctx.db.transaction().execute(async (trx) => {
+    await authorizeTx(trx, ctx, 'stock.adjust');
     const ids = await insertOpeningStockTx(trx, ctx, { ...data, productId: product.id, packQty });
     return { ...ids, warnings };
   });
@@ -200,6 +202,7 @@ export async function adjustStock(
 ): Promise<StockWriteResult> {
   const data = parseInput(adjustStockSchema, input);
   return ctx.db.transaction().execute(async (trx) => {
+    await authorizeTx(trx, ctx, 'stock.adjust');
     const batch = await trx
       .selectFrom('batch')
       .select(['id', 'product_id'])

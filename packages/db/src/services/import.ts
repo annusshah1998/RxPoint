@@ -16,6 +16,7 @@ import Papa from 'papaparse';
 import type { AppContext } from '../context';
 import { validationError } from '../validation';
 import { insertProductTx, newLookupCache, productInputSchema, type ParsedProduct } from './catalog';
+import { authorizeTx } from './guards';
 import { rebuildSearchIndex } from './search';
 import { listTaxClasses } from './setup';
 import { insertOpeningStockTx } from './stock';
@@ -517,8 +518,10 @@ export async function runImport(
   const createdIds = new Map<string, string>();
   const cache = newLookupCache();
 
+  await ctx.db.transaction().execute((trx) => authorizeTx(trx, ctx, 'import.run'));
   const importRows = async (batch: ImportRowPlan[]) =>
     ctx.db.transaction().execute(async (trx) => {
+      await authorizeTx(trx, ctx, 'import.run');
       const created = new Map<string, string>();
       let stockLines = 0;
       for (const row of batch) {

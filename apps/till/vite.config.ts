@@ -4,6 +4,8 @@ import { defineConfig } from 'vite';
 // Tauri loads the dev server from a fixed port.
 export default defineConfig({
   plugins: [react()],
+  // When this build was made: the clock guard treats an earlier PC date as wrong.
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   clearScreen: false,
   server: {
     port: 1420,

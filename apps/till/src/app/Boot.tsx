@@ -2,13 +2,20 @@ import { PRODUCT } from '@app/config';
 import {
   createServiceContext,
   getStoreInfo,
-  loadSession,
+  getStoreName,
+  loadDevice,
+  logout,
   openDatabase,
+  ownerNeedsPin,
   withSession,
   type ServiceContext,
+  type Session,
 } from '@app/db';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { LoginScreen } from '../features/auth/LoginScreen';
+import { OwnerPinScreen } from '../features/auth/OwnerPinScreen';
+import { RecoveryCodeScreen } from '../features/auth/RecoveryCodeScreen';
 import { SetupScreen } from '../features/setup/SetupScreen';
 import { errorMessage } from '../lib/errors';
 import { createExecutor, currentPlatform, type Platform } from '../platform';
@@ -28,35 +35,75 @@ const queryClient = new QueryClient({
 type BootState =
   | { status: 'starting' }
   | { status: 'failed'; message: string }
-  | { status: 'setup'; ctx: ServiceContext; platform: Platform }
+  | { status: 'setup' }
+  | { status: 'owner-pin' }
+  | { status: 'login'; storeName: string }
+  /** Shown once after setup or a PIN reset; `session` continues straight in after setup. */
+  | { status: 'recovery-code'; code: string; session: Session | null }
   | { status: 'ready'; services: Services };
 
-// Opened once per page load, even if React mounts this component twice in development.
-let started: Promise<BootState> | null = null;
+interface Opened {
+  ctx: ServiceContext;
+  platform: Platform;
+}
 
-async function start(): Promise<BootState> {
+// Opened once per page load, even if React mounts this component twice in development.
+let opened: Promise<Opened> | null = null;
+
+async function open(): Promise<Opened> {
   const platform = currentPlatform();
   const db = await openDatabase(await createExecutor());
-  const ctx = createServiceContext(db);
-  const session = await loadSession(ctx);
-  if (!session) return { status: 'setup', ctx, platform };
-  const app = withSession(ctx, session);
-  return { status: 'ready', services: { ctx: app, store: await getStoreInfo(app), platform } };
+  return { ctx: createServiceContext(db, { buildTime: new Date(__BUILD_TIME__) }), platform };
+}
+
+/** Which screen a till starts on: setup, the owner's first PIN, or login. */
+async function firstScreen(ctx: ServiceContext): Promise<BootState> {
+  if (!(await loadDevice(ctx))) return { status: 'setup' };
+  if (await ownerNeedsPin(ctx)) return { status: 'owner-pin' };
+  return { status: 'login', storeName: await getStoreName(ctx) };
 }
 
 export function Boot() {
   const [state, setState] = useState<BootState>({ status: 'starting' });
+  const [base, setBase] = useState<Opened | null>(null);
+
+  const fail = useCallback((error: unknown) => {
+    console.error(error);
+    setState({ status: 'failed', message: error instanceof Error ? error.message : String(error) });
+  }, []);
 
   useEffect(() => {
-    started ??= start();
-    started.then(setState, (error: unknown) => {
-      console.error(error);
-      setState({
-        status: 'failed',
-        message: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, []);
+    opened ??= open();
+    opened.then(async (o) => {
+      setBase(o);
+      setState(await firstScreen(o.ctx));
+    }, fail);
+  }, [fail]);
+
+  const enter = useCallback(
+    async (session: Session) => {
+      if (!base) return;
+      try {
+        const app = withSession(base.ctx, session);
+        const store = await getStoreInfo(app);
+        queryClient.clear();
+        // Each login starts on the home screen, not wherever the last person left off.
+        window.history.replaceState(null, '', '#/');
+        const lock = async () => {
+          await logout(app).catch(console.error);
+          queryClient.clear();
+          setState(await firstScreen(base.ctx));
+        };
+        setState({
+          status: 'ready',
+          services: { ctx: app, store, platform: base.platform, lock },
+        });
+      } catch (error) {
+        setState({ status: 'failed', message: errorMessage(error) });
+      }
+    },
+    [base],
+  );
 
   switch (state.status) {
     case 'starting':
@@ -73,19 +120,38 @@ export function Boot() {
     case 'setup':
       return (
         <SetupScreen
-          ctx={state.ctx}
-          onDone={async (session) => {
-            try {
-              const app = withSession(state.ctx, session);
-              const store = await getStoreInfo(app);
-              setState({
-                status: 'ready',
-                services: { ctx: app, store, platform: state.platform },
-              });
-            } catch (error) {
-              setState({ status: 'failed', message: errorMessage(error) });
-            }
+          ctx={base!.ctx}
+          onDone={({ session, recoveryCode }) =>
+            setState({ status: 'recovery-code', code: recoveryCode, session })
+          }
+        />
+      );
+    case 'owner-pin':
+      return (
+        <OwnerPinScreen
+          ctx={base!.ctx}
+          onDone={({ session, recoveryCode }) =>
+            setState({ status: 'recovery-code', code: recoveryCode, session })
+          }
+        />
+      );
+    case 'recovery-code':
+      return (
+        <RecoveryCodeScreen
+          code={state.code}
+          onDone={() => {
+            if (state.session) void enter(state.session);
+            else void firstScreen(base!.ctx).then(setState, fail);
           }}
+        />
+      );
+    case 'login':
+      return (
+        <LoginScreen
+          ctx={base!.ctx}
+          storeName={state.storeName}
+          onLogin={(session) => void enter(session)}
+          onRecovered={(code) => setState({ status: 'recovery-code', code, session: null })}
         />
       );
     case 'ready':
