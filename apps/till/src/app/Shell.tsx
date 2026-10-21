@@ -7,6 +7,7 @@ import { ImportScreen } from '../features/import/ImportScreen';
 import { ProductDetailScreen } from '../features/products/ProductDetailScreen';
 import { ProductEditScreen } from '../features/products/ProductEditScreen';
 import { ProductsScreen } from '../features/products/ProductsScreen';
+import { ShiftScreen } from '../features/shift/ShiftScreen';
 import { StaffScreen } from '../features/staff/StaffScreen';
 import { StockScreen } from '../features/stock/StockScreen';
 import { S } from '../strings';
@@ -15,6 +16,7 @@ import { routeHash, useRoute, type Route } from './router';
 import { useServices } from './services';
 
 const NAV: { label: string; route: Route; matches: Route['name'][]; needs?: Permission }[] = [
+  { label: S.nav.shift, route: { name: 'shift' }, matches: ['shift'], needs: 'shift.open' },
   {
     label: S.nav.products,
     route: { name: 'products' },
@@ -115,6 +117,8 @@ function Screen({ route }: { route: Route }) {
       return <ImportScreen />;
     case 'staff':
       return <StaffScreen />;
+    case 'shift':
+      return <ShiftScreen />;
   }
 }
 

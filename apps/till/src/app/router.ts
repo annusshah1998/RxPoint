@@ -8,7 +8,8 @@ export type Route =
   | { name: 'product-edit'; id: string }
   | { name: 'stock' }
   | { name: 'import' }
-  | { name: 'staff' };
+  | { name: 'staff' }
+  | { name: 'shift' };
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
@@ -16,6 +17,7 @@ export function parseHash(hash: string): Route {
   if (section === 'stock') return { name: 'stock' };
   if (section === 'import') return { name: 'import' };
   if (section === 'staff') return { name: 'staff' };
+  if (section === 'shift') return { name: 'shift' };
   if (section === 'products' && id === 'new') return { name: 'product-new' };
   if (section === 'products' && id && action === 'edit') return { name: 'product-edit', id };
   if (section === 'products' && id) return { name: 'product', id };
@@ -38,6 +40,8 @@ export function routeHash(route: Route): string {
       return '#/import';
     case 'staff':
       return '#/staff';
+    case 'shift':
+      return '#/shift';
   }
 }
 

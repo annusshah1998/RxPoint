@@ -6,7 +6,6 @@ import {
   isLocked,
   normalizeRecoveryCode,
   verifySecret,
-  type ApprovalKind,
   type UserRole,
 } from '@app/core';
 import { z } from 'zod';
@@ -20,7 +19,7 @@ import {
 import { META, getMeta, setMeta } from '../meta';
 import { parseInput } from '../validation';
 import { audit, updateRow } from '../writes';
-import { authorizeTx, actorTx, checkUserPin, verifyApprover, type PinUser } from './guards';
+import { actorTx, checkUserPin, type PinUser } from './guards';
 import { checkNewPin, pinText } from './pin-input';
 import { loadDevice } from './setup';
 
@@ -242,73 +241,4 @@ export async function changeOwnPin(
     await updateRow(trx, timestamp(ctx), 'app_user', user.id, { pin_hash: pinHash });
     await audit(trx, ctx, { action: 'auth.pin_change', entityType: 'app_user', entityId: user.id });
   });
-}
-
-// ---------------------------------------------------------------------------
-// Approvals for the sale in progress
-// ---------------------------------------------------------------------------
-
-const grantSchema = z.object({
-  draftId: z.string().min(1),
-  userId: z.string().min(1, 'Choose who is approving'),
-  pin: pinText,
-  permission: z.enum([
-    'sale.discount',
-    'sale.price_override',
-    'sale.controlled',
-  ] as const satisfies readonly ApprovalKind[]),
-  /** For a discount: the smallest cap (bp) that covers it. */
-  needBp: z.number().int().min(0).max(10_000).optional(),
-});
-
-export type GrantApprovalInput = z.input<typeof grantSchema>;
-
-/**
- * Records that a pharmacist or the owner approved something on the sale being rung up
- * (a discount above the cashier's cap, a price change, a controlled drug). The approval
- * stays with the draft and is used when the sale completes.
- */
-export async function grantApproval(
-  ctx: AppContext,
-  input: GrantApprovalInput,
-): Promise<{ approverName: string; limitBp: number | null }> {
-  const data = parseInput(grantSchema, input);
-  const need =
-    data.permission === 'sale.discount' ? { discountBp: data.needBp ?? 0 } : data.permission;
-  const approval = await verifyApprover(ctx, { userId: data.userId, pin: data.pin }, need);
-  const limitBp = data.permission === 'sale.discount' ? approval.capBp : null;
-
-  await ctx.db.transaction().execute(async (trx) => {
-    const draft = await trx
-      .selectFrom('sale_draft')
-      .select(['id'])
-      .where('id', '=', data.draftId)
-      .where('device_id', '=', ctx.session.deviceId)
-      .where('status', '=', 'active')
-      .executeTakeFirst();
-    if (!draft) throw new AppError('INVALID_STATE', 'This sale is no longer open');
-    if (data.permission !== 'sale.discount') {
-      // The approver must still be allowed (re-read inside the transaction).
-      await authorizeTx(trx, ctx, data.permission, approval);
-    }
-    await trx
-      .insertInto('draft_approval')
-      .values({
-        id: ctx.newId(),
-        draft_id: draft.id,
-        permission: data.permission,
-        approver_id: approval.userId,
-        limit_bp: limitBp,
-        created_at: timestamp(ctx),
-      })
-      .execute();
-    await audit(trx, ctx, {
-      action: 'auth.approval',
-      entityType: 'sale_draft',
-      entityId: draft.id,
-      after: { permission: data.permission, limitBp },
-      approvedBy: approval.userId,
-    });
-  });
-  return { approverName: approval.name, limitBp };
 }

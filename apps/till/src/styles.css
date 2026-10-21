@@ -748,3 +748,52 @@ progress {
   gap: 6px;
   justify-content: flex-end;
 }
+
+/* Shift ---------------------------------------------------------------------- */
+.narrow-card {
+  max-width: 560px;
+}
+.cash-count-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0 12px;
+}
+.cash-count-total {
+  margin: 4px 0 12px;
+  font-size: 16px;
+}
+.report-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+.report-table {
+  align-self: start;
+  width: 100%;
+  border-collapse: collapse;
+}
+.report-table th,
+.report-table td {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.report-table th {
+  font-weight: 400;
+  text-align: left;
+  color: var(--text-muted);
+}
+.report-table td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.report-strong th,
+.report-strong td {
+  font-weight: 600;
+  color: var(--text);
+}
+.approval-box {
+  margin: 8px 0;
+  padding: 12px;
+  background: var(--warn-soft);
+  border-radius: var(--radius);
+}

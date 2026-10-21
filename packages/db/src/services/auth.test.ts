@@ -4,7 +4,6 @@ import type { Db } from '../executor';
 import { asRole, createTestApp, tabletInput } from '../test-helpers';
 import {
   changeOwnPin,
-  grantApproval,
   listLoginUsers,
   login,
   ownerNeedsPin,
@@ -229,68 +228,5 @@ describe('permissions', () => {
       code: 'FORBIDDEN',
       message: 'Pharmacist can give at most 15% discount',
     });
-  });
-});
-
-describe('grantApproval', () => {
-  it('stores an approval on the open sale', async () => {
-    const t = await createTestApp();
-    const cashier = await asRole(t, 'cashier');
-    const pharmacist = await asRole(t, 'pharmacist');
-    const at = '2026-10-21T09:00:00.000Z';
-    await t.db
-      .insertInto('sale_draft')
-      .values({
-        id: 'd1',
-        device_id: cashier.app.session.deviceId,
-        user_id: cashier.id,
-        status: 'active',
-        label: null,
-        cart_json: '{}',
-        line_count: 1,
-        total: 100,
-        created_at: at,
-        updated_at: at,
-        held_at: null,
-      })
-      .execute();
-
-    expect(
-      await grantApproval(cashier.app, {
-        draftId: 'd1',
-        userId: pharmacist.id,
-        pin: pharmacist.pin,
-        permission: 'sale.discount',
-        needBp: 1180,
-      }),
-    ).toEqual({ approverName: 'Pharmacist', limitBp: 1500 });
-    await grantApproval(cashier.app, {
-      draftId: 'd1',
-      userId: pharmacist.id,
-      pin: pharmacist.pin,
-      permission: 'sale.price_override',
-    });
-
-    const rows = await t.db.selectFrom('draft_approval').selectAll().execute();
-    expect(rows).toMatchObject([
-      { draft_id: 'd1', permission: 'sale.discount', approver_id: pharmacist.id, limit_bp: 1500 },
-      { draft_id: 'd1', permission: 'sale.price_override', limit_bp: null },
-    ]);
-    const audit = await t.db
-      .selectFrom('audit_log')
-      .selectAll()
-      .where('action', '=', 'auth.approval')
-      .execute();
-    expect(audit).toHaveLength(2);
-    expect(audit[0]).toMatchObject({ user_id: cashier.id, approved_by: pharmacist.id });
-
-    await expect(
-      grantApproval(cashier.app, {
-        draftId: 'gone',
-        userId: pharmacist.id,
-        pin: pharmacist.pin,
-        permission: 'sale.controlled',
-      }),
-    ).rejects.toMatchObject({ code: 'INVALID_STATE' });
   });
 });

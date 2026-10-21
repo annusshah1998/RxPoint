@@ -58,6 +58,10 @@ describe('settleTenders', () => {
     expect(r.ok && r.payments[0]).toMatchObject({ provider: 'jazzcash', reference: '81726354' });
   });
 
+  it('settles a zero bill with no payments', () => {
+    expect(settleTenders(0, [])).toEqual({ ok: true, payments: [], cashApplied: 0, change: 0 });
+  });
+
   it.each([
     ['short', 5000, [{ method: 'cash', tendered: 4000 }], { problem: 'short', short: 1000 }],
     [

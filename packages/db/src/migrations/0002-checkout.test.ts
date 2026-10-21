@@ -510,9 +510,22 @@ describe('0002-checkout guards', () => {
           VALUES ('d4', ${deviceId}, ${userId}, 'held', '{}', 0, 0, ${AT}, ${AT})`.execute(s.db),
     ).rejects.toThrow(/CHECK/);
 
-    await sql`INSERT INTO draft_approval (id, draft_id, permission, approver_id, limit_bp,
-                created_at)
-              VALUES ('a1', 'd1', 'sale.discount', ${userId}, 1500, ${AT})`.execute(s.db);
+    const pharmacist = 'p1';
+    await sql`INSERT INTO app_user (id, name, role, is_active, created_at, updated_at)
+              VALUES (${pharmacist}, 'Pharmacist', 'pharmacist', 1, ${AT}, ${AT})`.execute(s.db);
+    const approve = (id: string, kind: string, bp: number | null, approver: string) =>
+      sql`INSERT INTO draft_approval (id, draft_id, kind, line_key, scope_json, approved_bp,
+            requested_by, approver_id, created_at)
+          VALUES (${id}, 'd1', ${kind}, 'k1', '{}', ${bp}, ${userId}, ${approver}, ${AT})`.execute(
+        s.db,
+      );
+    // A discount approval says how much; nobody approves their own sale.
+    await expect(approve('a0', 'sale.discount', null, pharmacist)).rejects.toThrow(/CHECK/);
+    await expect(approve('a0', 'sale.discount', 1180, userId)).rejects.toThrow(/CHECK/);
+    await approve('a1', 'sale.discount', 1180, pharmacist);
+    // Asking again for the same line replaces, never adds.
+    await expect(approve('a2', 'sale.discount', 1500, pharmacist)).rejects.toThrow(/UNIQUE/);
+    await approve('a3', 'sale.controlled', null, pharmacist);
     await sql`DELETE FROM sale_draft WHERE id = 'd1'`.execute(s.db);
     expect(await count(s.db, 'draft_approval')).toBe(0);
   });

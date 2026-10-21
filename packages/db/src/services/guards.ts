@@ -24,7 +24,7 @@ import {
 } from '@app/core';
 import { timestamp, withSession, type AppContext, type ServiceContext } from '../context';
 import type { Db } from '../executor';
-import { META, deleteMeta, getMeta, setMeta } from '../meta';
+import { META, getMeta, setMeta } from '../meta';
 import type { ShiftRow } from '../schema';
 import { audit, type Tx } from '../writes';
 import { getStoreSettingsTx } from './settings';
@@ -306,54 +306,83 @@ export async function nextDocSeqTx(
 
 export interface ClockState {
   check: ClockStatus;
+  /** The latest time any document was written. */
   highWater: string | null;
-  /** Someone approved working with this clock. */
-  overridden: boolean;
 }
 
 export async function clockStateTx(trx: Tx | Db, ctx: ServiceContext): Promise<ClockState> {
   const highWater = await getMeta(trx, META.clockHighWater);
-  const overridden = (await getMeta(trx, META.clockOverride)) !== null;
-  return {
-    check: assessClock(ctx.now(), highWater, { buildTime: ctx.buildTime }),
-    highWater,
-    overridden,
-  };
+  return { check: assessClock(ctx.now(), highWater, { buildTime: ctx.buildTime }), highWater };
 }
 
-/** Whether this clock state stops documents being written (unless overridden). */
+/**
+ * Whether this clock state stops documents being written: only a date that can't be right
+ * (before this build, or after 2035). A clock behind the last record only warns, because
+ * expiry checks never use a date earlier than the last record anyway.
+ */
 export function clockBlocks(check: ClockStatus): boolean {
-  return (
-    check.status === 'implausible' || (check.status === 'behind' && check.severity === 'block')
-  );
+  return check.status === 'implausible';
 }
 
-/** Refuses to write documents with a clock that is certainly wrong, unless someone approved it. */
+/** Refuses to write documents dated with a date that is certainly wrong. */
 export async function assertClockTx(trx: Tx, ctx: ServiceContext): Promise<ClockState> {
   const state = await clockStateTx(trx, ctx);
-  if (state.check.status === 'ok' && state.overridden) {
-    await deleteMeta(trx, META.clockOverride);
-    return { ...state, overridden: false };
+  if (clockBlocks(state.check)) {
+    throw new AppError('CLOCK_WRONG', clockMessage(ctx, state), {}, { clock: state.check });
   }
-  if (!clockBlocks(state.check) || state.overridden) return state;
-  throw new AppError('CLOCK_WRONG', clockMessage(ctx, state), {}, { clock: state.check });
+  return state;
 }
 
+/** What to tell staff about the clock, or '' when it looks right. */
 export function clockMessage(ctx: ServiceContext, state: ClockState): string {
   const shown = formatExpiry(localDate(ctx.now(), ctx.timeZone));
-  if (state.check.status === 'implausible') {
-    return `The computer’s date (${shown}) can’t be right. Fix the date in Windows, then try again.`;
+  const last = state.highWater
+    ? formatExpiry(localDate(new Date(state.highWater), ctx.timeZone))
+    : '';
+  switch (state.check.status) {
+    case 'implausible':
+      return `The computer’s date (${shown}) can’t be right. Fix the date in Windows, then try again.`;
+    case 'behind':
+      return (
+        `The computer’s clock is behind the last record (${last}). ` +
+        'Check the date and time in Windows.'
+      );
+    case 'ahead':
+      return (
+        `The computer’s date (${shown}) is ${state.check.days} days after the last record (${last}). ` +
+        'If that is wrong, fix it in Windows before selling.'
+      );
+    case 'ok':
+      return '';
   }
-  if (state.check.status === 'behind') {
-    const last = state.highWater
-      ? formatExpiry(localDate(new Date(state.highWater), ctx.timeZone))
-      : '';
-    return (
-      `The computer’s date (${shown}) is earlier than the last record (${last}). ` +
-      'Fix the date and time in Windows, or ask a pharmacist or the owner to approve.'
-    );
-  }
-  return '';
+}
+
+/**
+ * Notes, once per shift, that documents are being written while the clock reads behind
+ * the last record, so the owner can see which records may carry a wrong time.
+ */
+export async function noteClockSuspectTx(
+  trx: Tx,
+  ctx: AppContext,
+  shiftId: string,
+  state?: ClockState,
+): Promise<void> {
+  const clock = state ?? (await clockStateTx(trx, ctx));
+  if (clock.check.status !== 'behind') return;
+  const noted = await trx
+    .selectFrom('audit_log')
+    .select('id')
+    .where('action', '=', 'clock.suspect')
+    .where('entity_type', '=', 'shift')
+    .where('entity_id', '=', shiftId)
+    .executeTakeFirst();
+  if (noted) return;
+  await audit(trx, ctx, {
+    action: 'clock.suspect',
+    entityType: 'shift',
+    entityId: shiftId,
+    after: { now: timestamp(ctx), highWater: clock.highWater, behindMs: clock.check.byMs },
+  });
 }
 
 /** Records that documents were written now, so a clock moved back later is noticed. */
@@ -363,7 +392,11 @@ export async function bumpClockTx(trx: Tx, ctx: ServiceContext): Promise<void> {
   if (next !== current) await setMeta(trx, META.clockHighWater, next);
 }
 
-/** The business date: today, but never earlier than the last record's date. */
-export async function effectiveTodayTx(trx: Tx | Db, ctx: ServiceContext): Promise<IsoDate> {
+/**
+ * The date expiry is checked against: today, but never earlier than the last record, so
+ * moving the clock back can't make expired stock sellable. (Documents are dated with the
+ * real local date.)
+ */
+export async function expiryTodayTx(trx: Tx | Db, ctx: ServiceContext): Promise<IsoDate> {
   return effectiveToday(ctx.now(), await getMeta(trx, META.clockHighWater), ctx.timeZone);
 }

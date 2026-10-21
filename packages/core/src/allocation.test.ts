@@ -18,7 +18,7 @@ describe('allocateForSale', () => {
       ],
       shortfall: 0,
       expiredQty: 10,
-      expiredOnly: false,
+      needsExpiryCheck: false,
     });
   });
 
@@ -77,9 +77,25 @@ describe('allocateForSale', () => {
     });
   });
 
+  it('asks for an expiry check when selling past in-date stock with expired stock on record', () => {
+    // 5 in date, 20 expired, selling 10: the extra 5 may well be the expired packs.
+    const mixed = [
+      { batchId: 'OLD', expiryDate: '2026-09-30', qty: 20, placeholder: false },
+      { batchId: 'NEW', expiryDate: '2027-06-30', qty: 5, placeholder: false },
+    ];
+    expect(allocateForSale(mixed, 10, { today })).toMatchObject({
+      ok: true,
+      shortfall: 5,
+      expiredQty: 20,
+      needsExpiryCheck: true,
+    });
+    // Within in-date stock there is nothing to check.
+    expect(allocateForSale(mixed, 5, { today })).toMatchObject({ needsExpiryCheck: false });
+  });
+
   it('flags a sale where only expired stock is on record', () => {
     const r = allocateForSale([lots[0]!], 10, { today });
-    expect(r).toMatchObject({ ok: true, shortfall: 10, expiredQty: 10, expiredOnly: true });
+    expect(r).toMatchObject({ ok: true, shortfall: 10, expiredQty: 10, needsExpiryCheck: true });
     expect(r.ok && r.parts).toEqual([
       { batchId: null, qty: 10, pick: 'unrecorded', stockBefore: 0 },
     ]);

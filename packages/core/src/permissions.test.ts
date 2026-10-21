@@ -23,7 +23,10 @@ describe('permissions', () => {
       'cash.pay_out',
       'backup.run',
     ]);
-    expect(table.inventory).toEqual(['catalog.edit', 'stock.adjust', 'import.run']);
+    expect(table.inventory).toEqual(['catalog.edit', 'stock.adjust', 'import.run', 'cost.view']);
+    expect(table.pharmacist).toContain('clock.reset');
+    expect(table.pharmacist).toContain('cost.view');
+    expect(table.cashier).not.toContain('cost.view');
     expect(table.pharmacist).not.toContain('users.manage');
     expect(table.pharmacist).not.toContain('backup.restore');
     expect(table.pharmacist).toContain('sale.void');

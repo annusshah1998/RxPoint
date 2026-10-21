@@ -1,6 +1,6 @@
-import type { DiscountSpec, PricingLine } from './checkout';
-import type { Money } from './money';
-import type { PackPrice } from './pricing';
+import { lineDiscountAmount, type DiscountSpec, type PricingLine } from './checkout';
+import { percentOf, type Money } from './money';
+import { priceForQty, type PackPrice } from './pricing';
 import { breakdownQty, findBaseUnit, sortUnitsLargestFirst, type UnitDef } from './units';
 import { pluralize } from './text';
 
@@ -38,10 +38,15 @@ export interface CartLine {
   taxRateBp: number;
   /** Batches picked by hand (the strip in hand); null = automatic (first to expire). */
   batches: { batchId: string; qty: number }[] | null;
+  /**
+   * For a controlled drug whose pack matches no recorded batch: the batch number and
+   * expiry typed from the pack. A real batch is created for it when the sale completes.
+   */
+  packBatch: { batchNo: string; expiryDate: string; mrp: Money | null } | null;
   rx: RxKind;
   schedule: string | null;
-  /** The cashier confirmed the pack in hand is in date though only expired stock is on record. */
-  confirmedExpiredOnly: boolean;
+  /** The cashier confirmed the packs in hand are in date (expired stock is on record). */
+  confirmedInDate: boolean;
 }
 
 export interface PrescriptionInput {
@@ -76,6 +81,22 @@ export interface Cart {
   removed: RemovedLine[];
   /** The last removed line, for undo. */
   undo: { line: CartLine; index: number } | null;
+}
+
+/**
+ * The most base units one line may hold. Every barcode (6+ digits) is above it, so a
+ * barcode typed into the quantity box can never become a quantity.
+ */
+export const MAX_LINE_QTY = 99_999;
+
+/** Why a quantity can't go on a line, for the screen to say before changing the cart. */
+export function lineQtyProblem(qty: number): 'zero' | 'too_large' | null {
+  if (!Number.isSafeInteger(qty) || qty <= 0) return 'zero';
+  return qty > MAX_LINE_QTY ? 'too_large' : null;
+}
+
+function assertQty(qty: number) {
+  if (lineQtyProblem(qty)) throw new RangeError(`qty must be 1 to ${MAX_LINE_QTY}`);
 }
 
 export function newCart(id: string, userId: string, startedAt: string): Cart {
@@ -126,10 +147,15 @@ export function addItem(
   qty: number,
   key: string,
 ): Cart {
-  if (!Number.isSafeInteger(qty) || qty <= 0) throw new RangeError('qty must be positive');
+  assertQty(qty);
   const existing = cart.lines.find((l) => l.productId === product.productId && canMerge(l));
   if (existing) {
-    const merged = replaceLine(cart, existing.key, (l) => ({ ...l, qty: l.qty + qty }));
+    assertQty(existing.qty + qty);
+    const merged = replaceLine(cart, existing.key, (l) => ({
+      ...l,
+      qty: l.qty + qty,
+      confirmedInDate: false,
+    }));
     return { ...merged, selectedKey: existing.key };
   }
   const line: CartLine = {
@@ -147,22 +173,31 @@ export function addItem(
     allowDiscount: product.allowDiscount,
     taxRateBp: product.taxRateBp,
     batches: null,
+    packBatch: null,
     rx: product.rx,
     schedule: product.schedule,
-    confirmedExpiredOnly: false,
+    confirmedInDate: false,
   };
   return { ...cart, lines: [...cart.lines, line], selectedKey: key, undo: null };
 }
 
-/** Sets a line's quantity (base units). A manual batch pick no longer matches, so it is cleared. */
+/**
+ * Sets a line's quantity (base units). A manual batch pick that no longer adds up is
+ * cleared, and so is an "in date" confirmation (a new quantity needs a new answer).
+ */
 export function setQty(cart: Cart, key: string, qty: number, unitId?: string): Cart {
-  if (!Number.isSafeInteger(qty) || qty <= 0) throw new RangeError('qty must be positive');
-  return replaceLine(cart, key, (l) => ({
-    ...l,
-    qty,
-    unitId: unitId ?? l.unitId,
-    batches: l.batches && sumQty(l.batches) === qty ? l.batches : null,
-  }));
+  assertQty(qty);
+  return replaceLine(cart, key, (l) =>
+    l.qty === qty && (unitId ?? l.unitId) === l.unitId
+      ? l
+      : {
+          ...l,
+          qty,
+          unitId: unitId ?? l.unitId,
+          batches: l.batches && sumQty(l.batches) === qty ? l.batches : null,
+          confirmedInDate: l.qty === qty ? l.confirmedInDate : false,
+        },
+  );
 }
 
 function sumQty(parts: readonly { qty: number }[]): number {
@@ -248,8 +283,21 @@ export function pickBatches(
   return replaceLine(cart, key, (l) => {
     if (batches && sumQty(batches) !== l.qty)
       throw new RangeError('picks must add up to the quantity');
-    return { ...l, batches: batches && batches.length > 0 ? batches : null };
+    return {
+      ...l,
+      batches: batches && batches.length > 0 ? batches : null,
+      packBatch: batches && batches.length > 0 ? null : l.packBatch,
+    };
   });
+}
+
+/** For a controlled drug: the batch typed from the pack, when no recorded batch matches. */
+export function setPackBatch(cart: Cart, key: string, packBatch: CartLine['packBatch']): Cart {
+  return replaceLine(cart, key, (l) => ({
+    ...l,
+    packBatch,
+    batches: packBatch ? null : l.batches,
+  }));
 }
 
 export function setPrice(
@@ -266,8 +314,8 @@ export function setPrice(
   );
 }
 
-export function confirmExpiredOnly(cart: Cart, key: string): Cart {
-  return replaceLine(cart, key, (l) => ({ ...l, confirmedExpiredOnly: true }));
+export function confirmInDate(cart: Cart, key: string): Cart {
+  return replaceLine(cart, key, (l) => ({ ...l, confirmedInDate: true }));
 }
 
 export function selectLine(cart: Cart, key: string | null): Cart {
@@ -315,4 +363,58 @@ export function defaultSaleUnit(units: readonly CartUnit[], mode: 'strip' | 'bas
   const base = sellable.find((u) => u.qty === 1) ?? sellable[0] ?? findBaseUnit(units);
   if (mode === 'base') return base;
   return sellable.find((u) => u.qty > 1) ?? base;
+}
+
+export type DroppedDiscount = { lineKey: string | null; reason: 'too_large' | 'not_discountable' };
+
+/**
+ * Drops discounts that no longer fit after a change: a fixed line discount larger than
+ * the line, a fixed bill discount larger than the discountable total, or a discount on a
+ * line that can't be discounted. Dropping is safer than clamping (clamping would make a
+ * line free). Run after every change and on resume; the screen says what was dropped.
+ */
+export function normalizeCart(
+  cart: Cart,
+  settings: { defaultDiscountBp: number },
+): { cart: Cart; dropped: DroppedDiscount[] } {
+  const dropped: DroppedDiscount[] = [];
+  let billBase = 0;
+  const lines = cart.lines.map((l) => {
+    const gross = priceForQty(l.price, l.qty);
+    let discount = l.discount;
+    if (typeof discount === 'object') {
+      if (!l.allowDiscount) {
+        dropped.push({ lineKey: l.key, reason: 'not_discountable' });
+        discount = 'default';
+      } else if (discount.kind === 'amount' && discount.amount > gross) {
+        dropped.push({ lineKey: l.key, reason: 'too_large' });
+        discount = 'default';
+      }
+    }
+    if (l.allowDiscount) {
+      const spec: DiscountSpec | null =
+        discount === 'default'
+          ? settings.defaultDiscountBp > 0
+            ? { kind: 'percent', bp: settings.defaultDiscountBp }
+            : null
+          : discount === 'none'
+            ? null
+            : discount;
+      billBase += gross - lineDiscountAmount(gross, spec);
+    }
+    return discount === l.discount ? l : { ...l, discount };
+  });
+  let billDiscount = cart.billDiscount;
+  if (billDiscount?.kind === 'amount' && billDiscount.amount > billBase) {
+    dropped.push({ lineKey: null, reason: 'too_large' });
+    billDiscount = null;
+  }
+  if (dropped.length === 0) return { cart, dropped };
+  return { cart: { ...cart, lines, billDiscount }, dropped };
+}
+
+/** The bill discount in money terms (for showing what a percent comes to). */
+export function billDiscountPreview(base: Money, spec: DiscountSpec | null): Money {
+  if (!spec) return 0;
+  return spec.kind === 'percent' ? percentOf(base, spec.bp) : spec.amount;
 }

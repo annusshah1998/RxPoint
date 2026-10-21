@@ -54,3 +54,22 @@ export async function createAugmentin(page: Page) {
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('heading', { name: /Augmentin 625mg/ })).toBeVisible();
 }
+
+/** The owner adds someone on the Staff screen. */
+export async function addStaff(page: Page, name: string, role: string, pin: string) {
+  await page.getByRole('link', { name: 'Staff' }).click();
+  await page.getByRole('button', { name: 'Add person' }).click();
+  await page.getByLabel('Name').fill(name);
+  await page.getByLabel('Role').selectOption({ label: role });
+  await page.getByLabel('PIN', { exact: true }).fill(pin);
+  await page.getByLabel('Type the PIN again').fill(pin);
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByRole('cell', { name })).toBeVisible();
+}
+
+/** Locks the till and logs in as someone else. */
+export async function switchUser(page: Page, name: string, pin: string) {
+  await page.getByRole('button', { name: 'Lock' }).click();
+  await logIn(page, name, pin);
+  await expect(page.getByText(`· ${name}`)).toBeVisible();
+}

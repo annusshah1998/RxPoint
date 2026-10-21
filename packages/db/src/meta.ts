@@ -11,8 +11,6 @@ export const META = {
   recoveryHash: 'recovery_hash',
   /** The latest time any document was written; the clock should never be far behind it. */
   clockHighWater: 'clock_high_water',
-  /** Set when someone approved selling with a clock that looks wrong. */
-  clockOverride: 'clock_override',
   /** Lowest number the next invoice / return may take (raised after a restore). */
   invoiceFloor: 'invoice_floor',
   returnFloor: 'return_floor',

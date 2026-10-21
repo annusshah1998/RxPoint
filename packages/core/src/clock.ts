@@ -2,13 +2,14 @@ import { localDate, type IsoDate } from './dates';
 
 /**
  * Guards against a wrong PC clock (a dead CMOS battery, a mis-set date). Every document
- * write raises a "high water" timestamp. A clock far behind it, or a date that can't be
- * right, blocks selling until someone fixes it; expiry checks never use a date earlier
- * than the high water, so moving the clock back can't make expired stock sellable.
+ * write raises a "high water" timestamp. A date that can't be right blocks selling until
+ * the clock is fixed; a clock behind the high water only warns. Expiry checks never use a
+ * date earlier than the high water, so moving the clock back can't make expired stock
+ * sellable.
  */
 export type ClockStatus =
   | { status: 'ok' }
-  | { status: 'behind'; severity: 'warn' | 'block'; byMs: number }
+  | { status: 'behind'; byMs: number }
   | { status: 'ahead'; days: number }
   | { status: 'implausible' };
 
@@ -18,19 +19,13 @@ export interface ClockLimits {
   /** When the app was built: a clock before this is certainly wrong. */
   buildTime: Date;
   warnBehindMs?: number;
-  blockBehindMs?: number;
   /** A clock more than this many days ahead of the high water asks to confirm the date. */
   aheadDays?: number;
   latestYear?: number;
 }
 
 export function assessClock(now: Date, highWater: string | null, limits: ClockLimits): ClockStatus {
-  const {
-    warnBehindMs = 10 * 60_000,
-    blockBehindMs = DAY,
-    aheadDays = 3,
-    latestYear = 2035,
-  } = limits;
+  const { warnBehindMs = 10 * 60_000, aheadDays = 3, latestYear = 2035 } = limits;
   const t = now.getTime();
   if (t < limits.buildTime.getTime() - DAY || now.getUTCFullYear() > latestYear) {
     return { status: 'implausible' };
@@ -39,8 +34,7 @@ export function assessClock(now: Date, highWater: string | null, limits: ClockLi
   const hw = Date.parse(highWater);
   if (Number.isNaN(hw)) return { status: 'ok' };
   const behind = hw - t;
-  if (behind > blockBehindMs) return { status: 'behind', severity: 'block', byMs: behind };
-  if (behind > warnBehindMs) return { status: 'behind', severity: 'warn', byMs: behind };
+  if (behind > warnBehindMs) return { status: 'behind', byMs: behind };
   const ahead = t - hw;
   if (ahead > aheadDays * DAY) return { status: 'ahead', days: Math.floor(ahead / DAY) };
   return { status: 'ok' };

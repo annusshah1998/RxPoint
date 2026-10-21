@@ -1,3 +1,4 @@
+export * from './approvals';
 export * from './allocation';
 export * from './backup-rules';
 export * from './cart';

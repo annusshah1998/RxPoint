@@ -35,7 +35,10 @@ export const PERMISSIONS = [
   'backup.run',
   'backup.restore',
   'audit.view',
-  'clock.override',
+  /** Restart the clock guard after the PC clock ran ahead and was put right. */
+  'clock.reset',
+  /** See cost prices and profit. */
+  'cost.view',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -59,7 +62,7 @@ const ROLE_PERMISSIONS: Record<UserRole, ReadonlySet<Permission>> = {
     'cash.pay_out',
     'backup.run',
   ]),
-  inventory: new Set<Permission>(['catalog.edit', 'stock.adjust', 'import.run']),
+  inventory: new Set<Permission>(['catalog.edit', 'stock.adjust', 'import.run', 'cost.view']),
 };
 
 /**
@@ -74,7 +77,7 @@ export const APPROVABLE_PERMISSIONS = [
   'sale.return_late',
   'drawer.no_sale',
   'cash.pay_out_large',
-  'clock.override',
+  'clock.reset',
 ] as const satisfies readonly Permission[];
 export type ApprovablePermission = (typeof APPROVABLE_PERMISSIONS)[number];
 

@@ -40,6 +40,10 @@ export const MIN_WALLET_REFERENCE = 4;
  * total (only cash gives change). Several cash entries merge into one row.
  */
 export function settleTenders(total: Money, tenders: readonly Tender[]): SettleResult {
+  // Nothing to pay (e.g. a 100% discount): no payment rows at all.
+  if (total === 0 && tenders.length === 0) {
+    return { ok: true, payments: [], cashApplied: 0, change: 0 };
+  }
   let nonCash = 0;
   let tendered = 0;
   let cashRows = 0;

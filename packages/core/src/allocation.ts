@@ -25,8 +25,11 @@ export type AllocationResult =
       shortfall: number;
       /** Units on record only in expired batches. */
       expiredQty: number;
-      /** All the units come from unrecorded stock while expired stock is on record. */
-      expiredOnly: boolean;
+      /**
+       * Some units go to unrecorded stock while expired stock is on record: the packs in
+       * hand may be the expired ones, so the cashier must confirm they are in date.
+       */
+      needsExpiryCheck: boolean;
     }
   | { ok: false; error: 'expired' | 'unknown_batch' | 'manual_qty'; batchId?: string };
 
@@ -71,7 +74,7 @@ export function allocateForSale(
       sum += pick.qty;
     }
     if (sum !== qty) return { ok: false, error: 'manual_qty' };
-    return { ok: true, parts, shortfall: 0, expiredQty: 0, expiredOnly: false };
+    return { ok: true, parts, shortfall: 0, expiredQty: 0, needsExpiryCheck: false };
   }
 
   const fefo = allocateFefo(real, qty, { today: options.today });
@@ -94,7 +97,7 @@ export function allocateForSale(
     parts,
     shortfall: fefo.shortfall,
     expiredQty: fefo.expiredQty,
-    expiredOnly: fefo.shortfall === qty && fefo.expiredQty > 0,
+    needsExpiryCheck: fefo.shortfall > 0 && fefo.expiredQty > 0,
   };
 }
 

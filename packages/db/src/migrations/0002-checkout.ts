@@ -44,16 +44,22 @@ export const checkout: Migration = {
     ) STRICT`,
     `CREATE UNIQUE INDEX sale_draft_one_active_uq ON sale_draft (device_id) WHERE status = 'active'`,
 
-    // Written only after the approver's PIN was checked.
+    // Written only after the approver's PIN was checked. A grant covers exactly what was
+    // approved (scope_json: the line or bill as it was), so a later change needs a new PIN.
     `CREATE TABLE draft_approval (
       id TEXT PRIMARY KEY,
       draft_id TEXT NOT NULL REFERENCES sale_draft (id) ON DELETE CASCADE,
-      permission TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('sale.discount', 'sale.controlled', 'sale.price_override')),
+      line_key TEXT NOT NULL,
+      scope_json TEXT NOT NULL CHECK (json_valid(scope_json)),
+      approved_bp INTEGER CHECK (approved_bp BETWEEN 0 AND 10000),
+      requested_by TEXT NOT NULL REFERENCES app_user (id),
       approver_id TEXT NOT NULL REFERENCES app_user (id),
-      limit_bp INTEGER CHECK (limit_bp BETWEEN 0 AND 10000),
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      CHECK ((kind = 'sale.discount') = (approved_bp IS NOT NULL)),
+      CHECK (approver_id <> requested_by)
     ) STRICT`,
-    `CREATE INDEX draft_approval_draft_idx ON draft_approval (draft_id)`,
+    `CREATE UNIQUE INDEX draft_approval_scope_uq ON draft_approval (draft_id, kind, line_key)`,
 
     `CREATE TABLE pin_attempt (
       user_id TEXT PRIMARY KEY REFERENCES app_user (id),

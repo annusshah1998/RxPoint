@@ -17,15 +17,14 @@ describe('assessClock', () => {
     expect(assessClock(now, '2026-10-21T09:05:00Z', { buildTime })).toEqual({ status: 'ok' });
   });
 
-  it('warns a few hours behind and blocks a day behind', () => {
+  it('reports a clock behind the last record (a warning, never a block)', () => {
     expect(assessClock(now, '2026-10-21T19:30:00Z', { buildTime })).toEqual({
       status: 'behind',
-      severity: 'warn',
       byMs: 10.5 * 3_600_000,
     });
-    expect(assessClock(now, '2026-10-23T09:00:00Z', { buildTime })).toMatchObject({
+    expect(assessClock(now, '2026-10-23T09:00:00Z', { buildTime })).toEqual({
       status: 'behind',
-      severity: 'block',
+      byMs: 48 * 3_600_000,
     });
   });
 

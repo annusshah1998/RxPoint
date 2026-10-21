@@ -1,4 +1,4 @@
-import type { PaymentMethod, UserRole, WalletProvider } from '@app/core';
+import type { GrantKind, PaymentMethod, UserRole, WalletProvider } from '@app/core';
 import type { Generated, Insertable, Selectable } from 'kysely';
 
 /**
@@ -97,14 +97,20 @@ export interface SaleDraftTable {
   held_at: string | null;
 }
 
-/** An approval given by PIN for a draft. Deleted with the draft. */
+/** An approval given by PIN for one line (or the whole bill) of a draft. Deleted with the draft. */
 export interface DraftApprovalTable {
   id: string;
   draft_id: string;
-  permission: string;
+  kind: GrantKind;
+  /** The line approved; '' for the whole bill. */
+  line_key: string;
+  /** What was approved, as it was (see grantScope in @app/core). */
+  scope_json: string;
+  /** For discounts: the discount approved (the need, not the approver's cap), in bp. */
+  approved_bp: number | null;
+  /** Who was selling: nobody else can use the approval. */
+  requested_by: string;
   approver_id: string;
-  /** For discounts: the approver's cap in basis points. */
-  limit_bp: number | null;
   created_at: string;
 }
 

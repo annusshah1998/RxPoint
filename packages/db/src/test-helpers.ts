@@ -6,6 +6,7 @@ import { openDatabase } from './open';
 import { login } from './services/auth';
 import type { ProductInput } from './services/catalog';
 import { setupStore } from './services/setup';
+import { openShift, type OpenShift } from './services/shift';
 import { createUser } from './services/users';
 
 export interface TestApp {
@@ -79,6 +80,11 @@ export async function asRole(t: TestApp, role: UserRole, name?: string): Promise
   });
   const session = await login(t.ctx, { userId: user.id, pin });
   return { id: user.id, name: user.name, pin, app: withSession(t.ctx, session) };
+}
+
+/** Opens a shift for `app` with a Rs 5,000 float (or `float`). */
+export function openTestShift(app: AppContext, float = 500_000): Promise<OpenShift> {
+  return openShift(app, { openingFloat: float });
 }
 
 /** A tablet product: Box of 3 strips of 10, priced per box. */

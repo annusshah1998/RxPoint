@@ -14,14 +14,14 @@ export const PKR_NOTES = [500_000, 100_000, 50_000, 10_000, 5_000, 2_000, 1_000]
 
 export interface CashCount {
   /** Number of each note, keyed by its value in paisa. */
-  notes: Record<string, number>;
+  notes: Partial<Record<string, number>>;
   /** Coins counted as one amount. */
   coins: Money;
 }
 
 export function countTotal(count: CashCount): Money {
   let total = count.coins;
-  for (const [value, n] of Object.entries(count.notes)) {
+  for (const [value, n = 0] of Object.entries(count.notes)) {
     const v = Number(value);
     if (!PKR_NOTES.includes(v as (typeof PKR_NOTES)[number])) {
       throw new RangeError(`not a note: ${value}`);

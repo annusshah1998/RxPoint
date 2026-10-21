@@ -11,6 +11,11 @@ import {
   setLineDiscount,
   setPrice,
   setQty,
+  MAX_LINE_QTY,
+  confirmInDate,
+  lineQtyProblem,
+  normalizeCart,
+  setBillDiscount,
   toPricingLines,
   undoRemove,
   type CartProduct,
@@ -100,6 +105,52 @@ describe('cart', () => {
     expect(cart.lines[0]!.batches).toEqual([{ batchId: 'b', qty: 6 }]);
     cart = setQty(cart, 'k1', 12);
     expect(cart.lines[0]!.batches).toBeNull();
+  });
+
+  it('refuses absurd quantities, like a barcode typed into the quantity box', () => {
+    expect(lineQtyProblem(0)).toBe('zero');
+    expect(lineQtyProblem(MAX_LINE_QTY)).toBeNull();
+    expect(lineQtyProblem(896123)).toBe('too_large');
+    expect(() => addItem(start(), augmentin, 'strip', 8961234567890, 'k1')).toThrow(RangeError);
+    let cart = addItem(start(), augmentin, 'tab', MAX_LINE_QTY, 'k1');
+    expect(() => addItem(cart, augmentin, 'tab', 1, 'k2')).toThrow(RangeError);
+    expect(() => setQty(cart, 'k1', MAX_LINE_QTY + 1)).toThrow(RangeError);
+    cart = setQty(cart, 'k1', 6);
+    expect(cart.lines[0]!.qty).toBe(6);
+  });
+
+  it('asks again whether the packs are in date after the quantity changes', () => {
+    let cart = addItem(start(), augmentin, 'strip', 6, 'k1');
+    cart = confirmInDate(cart, 'k1');
+    expect(cart.lines[0]!.confirmedInDate).toBe(true);
+    cart = setQty(cart, 'k1', 6);
+    expect(cart.lines[0]!.confirmedInDate).toBe(true);
+    cart = setQty(cart, 'k1', 12);
+    expect(cart.lines[0]!.confirmedInDate).toBe(false);
+  });
+
+  it('drops discounts that no longer fit', () => {
+    const d = { defaultDiscountBp: 0 };
+    let cart = addItem(start(), augmentin, 'strip', 12, 'k1'); // Rs 872.40
+    cart = setLineDiscount(cart, 'k1', { kind: 'amount', amount: 50000 });
+    expect(normalizeCart(cart, d).dropped).toEqual([]);
+    cart = setQty(cart, 'k1', 6); // Rs 436.20 < Rs 500 off
+    const after = normalizeCart(cart, d);
+    expect(after.dropped).toEqual([{ lineKey: 'k1', reason: 'too_large' }]);
+    expect(after.cart.lines[0]!.discount).toBe('default');
+
+    // A fixed bill discount above what can be discounted.
+    cart = setBillDiscount(after.cart, { kind: 'amount', amount: 50000 });
+    expect(normalizeCart(cart, d)).toMatchObject({
+      dropped: [{ lineKey: null, reason: 'too_large' }],
+      cart: { billDiscount: null },
+    });
+
+    // A line that can't be discounted keeps no manual discount.
+    const milk = { ...augmentin, productId: 'milk', allowDiscount: false };
+    cart = addItem(start(), milk, 'tab', 1, 'm1');
+    cart = setLineDiscount(cart, 'm1', { kind: 'percent', bp: 1000 });
+    expect(normalizeCart(cart, d).dropped).toEqual([{ lineKey: 'm1', reason: 'not_discountable' }]);
   });
 
   it('sets and resets prices', () => {
