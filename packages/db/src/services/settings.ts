@@ -160,18 +160,16 @@ export async function updateStoreSettings(
 // Device settings (local to this till: printer, drawer, backup folder)
 // ---------------------------------------------------------------------------
 
-export const PRINTER_MODES = ['off', 'windows', 'network', 'file'] as const;
+export const PRINTER_MODES = ['off', 'windows', 'network'] as const;
 export type PrinterMode = (typeof PRINTER_MODES)[number];
 
 const deviceSettingsSchema = z.object({
   printer: z.object({
     mode: z.enum(PRINTER_MODES),
     /** Null means the Windows default printer. */
-    windowsPrinter: z.string().trim().max(200).nullable(),
+    printerName: z.string().trim().max(200).nullable(),
     host: z.string().trim().max(100),
     port: z.number().int().min(1).max(65_535),
-    /** Folder that File mode writes receipts to. */
-    dir: z.string().trim().max(500).nullable(),
     columns: z.union([z.literal(48), z.literal(42), z.literal(32)]),
     cut: z.boolean(),
     autoPrint: z.boolean(),
@@ -191,10 +189,9 @@ export type DeviceSettings = z.output<typeof deviceSettingsSchema>;
 export const DEFAULT_DEVICE_SETTINGS: DeviceSettings = {
   printer: {
     mode: 'off',
-    windowsPrinter: null,
+    printerName: null,
     host: '',
     port: 9100,
-    dir: null,
     columns: 48,
     cut: true,
     autoPrint: true,
@@ -203,8 +200,12 @@ export const DEFAULT_DEVICE_SETTINGS: DeviceSettings = {
   backup: { mirrorDir: null },
 };
 
-export async function getDeviceSettings(ctx: ServiceContext): Promise<DeviceSettings> {
-  const raw = await getMeta(ctx.db, META.deviceSettings);
+export function getDeviceSettings(ctx: ServiceContext): Promise<DeviceSettings> {
+  return getDeviceSettingsTx(ctx.db);
+}
+
+export async function getDeviceSettingsTx(db: Db | Tx): Promise<DeviceSettings> {
+  const raw = await getMeta(db, META.deviceSettings);
   if (!raw) return structuredClone(DEFAULT_DEVICE_SETTINGS);
   try {
     const stored = JSON.parse(raw) as Partial<DeviceSettings>;
@@ -247,11 +248,6 @@ export async function updateDeviceSettings(
   if (after.printer.mode === 'network' && !after.printer.host) {
     throw new AppError('VALIDATION', 'Enter the printer’s IP address', {
       'printer.host': 'Enter the printer’s IP address',
-    });
-  }
-  if (after.printer.mode === 'file' && !after.printer.dir) {
-    throw new AppError('VALIDATION', 'Choose a folder for receipt files', {
-      'printer.dir': 'Choose a folder',
     });
   }
   return ctx.db.transaction().execute(async (trx) => {

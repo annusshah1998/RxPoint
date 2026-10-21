@@ -86,6 +86,18 @@ export async function login(ctx: ServiceContext, input: LoginInput): Promise<Ses
 
   const session: Session = { ...device, userId: user.id };
   await ctx.db.transaction().execute(async (trx) => {
+    // Approvals on the sale in progress belong to whoever was selling, not the next person.
+    await trx
+      .deleteFrom('draft_approval')
+      .where('requested_by', '!=', user.id)
+      .where('draft_id', 'in', (eb) =>
+        eb
+          .selectFrom('sale_draft')
+          .select('id')
+          .where('device_id', '=', device.deviceId)
+          .where('status', '=', 'active'),
+      )
+      .execute();
     await audit(trx, withSession(ctx, session), {
       action: 'auth.login',
       entityType: 'app_user',

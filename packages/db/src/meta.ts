@@ -16,6 +16,8 @@ export const META = {
   returnFloor: 'return_floor',
   /** Printer, drawer and backup folder for this till (JSON). */
   deviceSettings: 'device_settings',
+  /** The last receipt meant to print: {docType, docId, status} (JSON). */
+  lastReceipt: 'last_receipt',
 } as const;
 
 export type MetaKey = (typeof META)[keyof typeof META];

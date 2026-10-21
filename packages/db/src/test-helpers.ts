@@ -1,9 +1,20 @@
-import { uuidv7, type UserRole } from '@app/core';
+import {
+  addItem,
+  setBillDiscount,
+  setLineDiscount,
+  uuidv7,
+  type Cart,
+  type DiscountSpec,
+  type Tender,
+  type UserRole,
+} from '@app/core';
 import { createServiceContext, withSession, type AppContext, type ServiceContext } from './context';
 import type { Db } from './executor';
 import { createNodeExecutor } from './node';
 import { openDatabase } from './open';
 import { login } from './services/auth';
+import { completeSale, getSellable, planSale } from './services/checkout';
+import { saveDraft, startDraft } from './services/drafts';
 import type { ProductInput } from './services/catalog';
 import { setupStore } from './services/setup';
 import { openShift, type OpenShift } from './services/shift';
@@ -106,4 +117,48 @@ export function tabletInput(overrides: Partial<ProductInput> = {}): ProductInput
     rxRequired: false,
     ...overrides,
   };
+}
+
+export interface CartItem {
+  productId: string;
+  /** Unit name the quantity is in, e.g. 'Strip'; the base unit when left out. */
+  unit?: string;
+  qty: number;
+  discount?: DiscountSpec;
+  key?: string;
+}
+
+/** Rings up items on this till's draft (as the sale screen would) and saves it. */
+export async function ringUp(
+  app: AppContext,
+  items: CartItem[],
+  bill: DiscountSpec | null = null,
+): Promise<Cart> {
+  let cart = (await startDraft(app)).cart;
+  for (const [i, item] of items.entries()) {
+    const sellable = await getSellable(app, item.productId);
+    if (!sellable) throw new Error(`no product ${item.productId}`);
+    const unit = item.unit
+      ? sellable.product.units.find((u) => u.name === item.unit)!
+      : sellable.product.units.find((u) => u.qty === 1)!;
+    const key = item.key ?? `k${i + 1}`;
+    cart = addItem(cart, sellable.product, unit.id, item.qty * unit.qty, key);
+    if (item.discount) cart = setLineDiscount(cart, key, item.discount);
+  }
+  if (bill) cart = setBillDiscount(cart, bill);
+  await saveDraft(app, cart);
+  return cart;
+}
+
+/** Saves `cart` and completes it at the total planSale shows (cash exact if no tenders given). */
+export async function checkout(app: AppContext, cart: Cart, tenders?: Tender[]) {
+  await saveDraft(app, cart);
+  const plan = await planSale(app, cart);
+  if (!plan.totals) throw new Error(`cart has problems: ${JSON.stringify(plan.fields)}`);
+  const total = plan.totals.total;
+  return completeSale(app, {
+    draftId: cart.id,
+    tenders: tenders ?? (total > 0 ? [{ method: 'cash', tendered: total }] : []),
+    expectedTotal: total,
+  });
 }
