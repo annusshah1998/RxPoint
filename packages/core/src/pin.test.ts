@@ -28,3 +28,43 @@ describe('PINs', () => {
     await expect(hashPin('12')).rejects.toThrow();
   });
 });
+
+describe('PIN rules', () => {
+  it('rejects weak PINs', async () => {
+    const { pinProblem } = await import('./pin');
+    expect(pinProblem('1111')).toBe('weak');
+    expect(pinProblem('1234')).toBe('weak');
+    expect(pinProblem('654321')).toBe('weak');
+    expect(pinProblem('2580')).toBeNull();
+    expect(pinProblem('12a4')).toBe('format');
+    expect(pinProblem('2580', { owner: true })).toBe('format');
+    expect(pinProblem('258014', { owner: true })).toBeNull();
+  });
+
+  it('locks out after repeated failures', async () => {
+    const { lockUntil, isLocked } = await import('./pin');
+    const now = new Date('2026-10-21T09:00:00Z');
+    expect(lockUntil(4, now)).toBeNull();
+    expect(lockUntil(5, now)?.toISOString()).toBe('2026-10-21T09:01:00.000Z');
+    expect(lockUntil(6, now)).toBeNull();
+    expect(lockUntil(10, now)?.toISOString()).toBe('2026-10-21T09:05:00.000Z');
+    expect(lockUntil(20, now)?.toISOString()).toBe('2026-10-21T09:15:00.000Z');
+    expect(isLocked('2026-10-21T09:01:00.000Z', now)).toBe(true);
+    expect(isLocked('2026-10-21T08:59:00.000Z', now)).toBe(false);
+    // A lock far in the future means the clock went back: ignore it.
+    expect(isLocked('2026-10-23T09:00:00.000Z', now)).toBe(false);
+  });
+
+  it('makes and checks recovery codes', async () => {
+    const { generateRecoveryCode, hashSecret, verifySecret, normalizeRecoveryCode } =
+      await import('./pin');
+    const code = generateRecoveryCode();
+    expect(code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+    expect(code).not.toMatch(/[01OIL]/);
+    const stored = await hashSecret(normalizeRecoveryCode(code), 1000);
+    expect(
+      await verifySecret(normalizeRecoveryCode(code.toLowerCase().replace(/-/g, ' ')), stored),
+    ).toBe(true);
+    expect(await verifySecret('WRONGCODE', stored)).toBe(false);
+  });
+});

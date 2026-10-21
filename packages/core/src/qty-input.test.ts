@@ -52,3 +52,30 @@ describe('parseQtyInput', () => {
     expect(exact.ok && exact.baseQty).toBe(12);
   });
 });
+
+describe('scan box input', () => {
+  it('splits a quantity prefix from the search', async () => {
+    const { parseScanInput, looksLikeBarcode } = await import('./qty-input');
+    expect(parseScanInput('2s*pana')).toEqual({ qtyText: '2s', term: 'pana' });
+    expect(parseScanInput('3*8964000000017')).toEqual({ qtyText: '3', term: '8964000000017' });
+    expect(parseScanInput('panadol')).toEqual({ qtyText: null, term: 'panadol' });
+    expect(parseScanInput('*pana')).toEqual({ qtyText: null, term: '*pana' });
+    expect(parseScanInput('x*pana')).toEqual({ qtyText: null, term: 'x*pana' });
+    expect(looksLikeBarcode('8964000000017')).toBe(true);
+    expect(looksLikeBarcode('12345')).toBe(false);
+    expect(looksLikeBarcode('pan123456')).toBe(false);
+  });
+
+  it('reads discounts as typed', async () => {
+    const { parseDiscountInput } = await import('./qty-input');
+    expect(parseDiscountInput('10')).toEqual({ kind: 'percent', bp: 1000 });
+    expect(parseDiscountInput('12.5%')).toEqual({ kind: 'percent', bp: 1250 });
+    expect(parseDiscountInput('50/-')).toEqual({ kind: 'amount', amount: 5000 });
+    expect(parseDiscountInput('Rs 50')).toEqual({ kind: 'amount', amount: 5000 });
+    expect(parseDiscountInput('rs.12.50')).toEqual({ kind: 'amount', amount: 1250 });
+    expect(parseDiscountInput('')).toEqual({ kind: 'none' });
+    expect(parseDiscountInput('0')).toEqual({ kind: 'none' });
+    expect(parseDiscountInput('101%')).toEqual({ kind: 'invalid' });
+    expect(parseDiscountInput('ten')).toEqual({ kind: 'invalid' });
+  });
+});

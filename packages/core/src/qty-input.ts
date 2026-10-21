@@ -56,3 +56,54 @@ function matchUnit<T extends UnitDef>(
   if (prefixed.length === 1) return { unit: prefixed[0]! };
   return { error: prefixed.length === 0 ? 'unknown_unit' : 'ambiguous_unit' };
 }
+
+/**
+ * What was typed in the sale screen's scan box. A quantity can be put in front with a
+ * star: "2s*pana" (2 strips of the first match), "3*8964000000017" (3 of a scanned pack).
+ */
+export function parseScanInput(input: string): { qtyText: string | null; term: string } {
+  const text = input.trim();
+  const star = text.indexOf('*');
+  if (star > 0) {
+    const qtyText = text.slice(0, star).trim();
+    const term = text.slice(star + 1).trim();
+    if (qtyText && term && /^[\d\sa-z,+]+$/i.test(qtyText) && /\d/.test(qtyText)) {
+      return { qtyText, term };
+    }
+  }
+  return { qtyText: null, term: text };
+}
+
+/** Barcodes are 6–14 digits (EAN-8, EAN-13, GTIN-14, in-store codes). */
+export function looksLikeBarcode(text: string): boolean {
+  return /^\d{6,14}$/.test(text.trim());
+}
+
+export type DiscountInput =
+  | { kind: 'none' }
+  | { kind: 'percent'; bp: number }
+  | { kind: 'amount'; amount: number }
+  | { kind: 'invalid' };
+
+/**
+ * A discount as typed: "10" or "10%" → 10%; "12.5%" → 12.5%; "50/-", "rs50", "Rs 50" →
+ * Rs 50 off; "0" or blank → none. Over 100% is invalid.
+ */
+export function parseDiscountInput(input: string): DiscountInput {
+  const text = input.trim().toLowerCase().replace(/\s+/g, '');
+  if (!text || text === '0' || text === '0%') return { kind: 'none' };
+  let m = /^rs\.?(\d+(?:\.\d{1,2})?)$/.exec(text) ?? /^(\d+(?:\.\d{1,2})?)\/-$/.exec(text);
+  if (m) {
+    const [whole, frac = ''] = m[1]!.split('.');
+    const amount = Number(whole) * 100 + Number(frac.padEnd(2, '0'));
+    return amount > 0 ? { kind: 'amount', amount } : { kind: 'none' };
+  }
+  m = /^(\d+(?:\.\d{1,2})?)%?$/.exec(text);
+  if (m) {
+    const [whole, frac = ''] = m[1]!.split('.');
+    const bp = Number(whole) * 100 + Number(frac.padEnd(2, '0'));
+    if (bp > 10_000) return { kind: 'invalid' };
+    return bp > 0 ? { kind: 'percent', bp } : { kind: 'none' };
+  }
+  return { kind: 'invalid' };
+}
