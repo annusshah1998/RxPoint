@@ -49,6 +49,7 @@ export const productInputSchema = z
       .nullish()
       .transform((v) => v || null),
     rxRequired: z.boolean().default(false),
+    allowDiscount: z.boolean().default(true),
     controlledSchedule: optionalText(10).transform((v) => v?.toUpperCase() ?? null),
     rack: optionalText(30),
     reorderLevel: z
@@ -135,6 +136,7 @@ export interface ProductDetail {
   rack: string | null;
   reorderLevel: number | null;
   notes: string | null;
+  allowDiscount: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -164,6 +166,7 @@ export function toProductInput(product: ProductDetail): ProductInput {
     rack: product.rack,
     reorderLevel: product.reorderLevel,
     notes: product.notes,
+    allowDiscount: product.allowDiscount,
   };
 }
 
@@ -233,6 +236,7 @@ export async function getProduct(ctx: ServiceContext, id: string): Promise<Produ
     rack: row.rack,
     reorderLevel: row.reorder_level,
     notes: row.notes,
+    allowDiscount: row.allow_discount === 1,
     isActive: row.is_active === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -368,6 +372,7 @@ function productFields(data: ParsedProduct, manufacturerId: string | null) {
     rack: data.rack,
     reorder_level: data.reorderLevel,
     notes: data.notes,
+    allow_discount: bool(data.allowDiscount),
   };
 }
 

@@ -22,6 +22,18 @@ export const SYNCED_TABLES = {
   batch: 'mutable',
   stock_movement: 'append',
   audit_log: 'append',
+  // Milestone 2
+  setting: 'mutable',
+  shift: 'mutable',
+  cash_movement: 'append',
+  sale: 'append',
+  sale_line: 'append',
+  sale_line_batch: 'append',
+  sale_prescription: 'append',
+  sale_void: 'append',
+  sale_return: 'append',
+  sale_return_line: 'append',
+  payment: 'append',
 } as const satisfies Partial<Record<keyof DB, 'mutable' | 'append'>>;
 
 export type SyncedTable = keyof typeof SYNCED_TABLES;
@@ -112,6 +124,8 @@ export interface AuditEntry {
   before?: unknown;
   after?: unknown;
   reason?: string | null;
+  /** The user who approved it by PIN, if someone else had to. */
+  approvedBy?: string | null;
 }
 
 /** Records a sensitive change (price, stock, void, discount) in the same transaction. */
@@ -127,6 +141,7 @@ export async function audit(trx: Tx, ctx: AppContext, entry: AuditEntry): Promis
     before_json: entry.before === undefined ? null : JSON.stringify(entry.before),
     after_json: entry.after === undefined ? null : JSON.stringify(entry.after),
     reason: entry.reason ?? null,
+    approved_by: entry.approvedBy ?? null,
     created_at: ctx.now().toISOString(),
   });
 }

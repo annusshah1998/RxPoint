@@ -161,6 +161,7 @@ export async function insertOpeningStockTx(
       cost_price: line.costPrice,
       mrp: line.mrp,
       source: 'opening',
+      is_placeholder: 0,
       created_at: now,
       updated_at: now,
     });
@@ -257,6 +258,8 @@ export interface BatchStock {
   /** Cost of the quantity on hand; null if the batch cost is unknown. */
   value: Money | null;
   source: BatchSource;
+  /** The product's "Unrecorded stock" batch: sales made beyond recorded stock. */
+  isPlaceholder: boolean;
   receivedAt: string;
 }
 
@@ -277,6 +280,7 @@ function toBatchStock(
     cost_price: number | null;
     mrp: number | null;
     source: BatchSource;
+    is_placeholder: number;
     created_at: string;
   },
   date: IsoDate,
@@ -296,6 +300,7 @@ function toBatchStock(
         ? null
         : priceForQty({ amount: row.cost_price, perQty: row.pack_qty }, row.qty),
     source: row.source,
+    isPlaceholder: row.is_placeholder === 1,
     receivedAt: row.created_at,
   };
 }
@@ -308,6 +313,7 @@ const BATCH_COLUMNS = [
   'b.cost_price',
   'b.mrp',
   'b.source',
+  'b.is_placeholder',
   'b.created_at',
   's.qty',
 ] as const;
@@ -340,7 +346,7 @@ export async function getProductStock(
   };
 }
 
-/** Which batches a sale of `qty` base units would take from (used by checkout in M2). */
+/** Which recorded batches a sale of `qty` base units would take from. */
 export async function planFefo(
   ctx: AppContext,
   productId: string,
@@ -348,12 +354,14 @@ export async function planFefo(
 ): Promise<FefoResult> {
   const { batches } = await getProductStock(ctx, productId);
   return allocateFefo(
-    batches.map((b) => ({
-      batchId: b.batchId,
-      expiryDate: b.expiryDate,
-      qty: b.qty,
-      receivedAt: b.receivedAt,
-    })),
+    batches
+      .filter((b) => !b.isPlaceholder)
+      .map((b) => ({
+        batchId: b.batchId,
+        expiryDate: b.expiryDate,
+        qty: b.qty,
+        receivedAt: b.receivedAt,
+      })),
     qty,
     { today: today(ctx) },
   );

@@ -1,3 +1,4 @@
+import type { PaymentMethod, UserRole, WalletProvider } from '@app/core';
 import type { Generated, Insertable, Selectable } from 'kysely';
 
 /**
@@ -31,6 +32,22 @@ export interface DB {
   audit_log: AuditLogTable;
   product_fts: ProductFtsTable;
   schema_migration: SchemaMigrationTable;
+  // Milestone 2 (0002-checkout)
+  sale_draft: SaleDraftTable;
+  draft_approval: DraftApprovalTable;
+  pin_attempt: PinAttemptTable;
+  backup_log: BackupLogTable;
+  setting: SettingTable;
+  shift: ShiftTable;
+  cash_movement: CashMovementTable;
+  sale: SaleTable;
+  sale_line: SaleLineTable;
+  sale_line_batch: SaleLineBatchTable;
+  sale_prescription: SalePrescriptionTable;
+  sale_void: SaleVoidTable;
+  sale_return: SaleReturnTable;
+  sale_return_line: SaleReturnLineTable;
+  payment: PaymentTable;
 }
 
 // ---- Local-only tables (never synced) ----
@@ -63,6 +80,55 @@ export interface BatchStockTable {
   batch_id: string;
   product_id: string;
   qty: number;
+}
+
+/** The sale being rung up (one 'active' per till) and held sales. The sale gets this id. */
+export interface SaleDraftTable {
+  id: string;
+  device_id: string;
+  user_id: string;
+  status: 'active' | 'held';
+  label: string | null;
+  cart_json: string;
+  line_count: number;
+  total: number;
+  created_at: string;
+  updated_at: string;
+  held_at: string | null;
+}
+
+/** An approval given by PIN for a draft. Deleted with the draft. */
+export interface DraftApprovalTable {
+  id: string;
+  draft_id: string;
+  permission: string;
+  approver_id: string;
+  /** For discounts: the approver's cap in basis points. */
+  limit_bp: number | null;
+  created_at: string;
+}
+
+/** Wrong-PIN count and lockout per user. */
+export interface PinAttemptTable {
+  user_id: string;
+  failed_count: number;
+  locked_until: string | null;
+  updated_at: string;
+}
+
+export type BackupKindValue = 'auto' | 'shift' | 'manual' | 'premigrate' | 'prerestore';
+
+export interface BackupLogTable {
+  id: string;
+  kind: BackupKindValue;
+  file_name: string;
+  status: 'ok' | 'failed';
+  size_bytes: number | null;
+  outbox_seq: number | null;
+  mirror_status: 'none' | 'ok' | 'failed';
+  error: string | null;
+  started_at: string;
+  finished_at: string;
 }
 
 /** Full-text search index over products, rebuilt from the product tables. */
@@ -99,8 +165,6 @@ export interface DeviceTable extends Timestamps {
   code: string;
   name: string;
 }
-
-export type UserRole = 'owner' | 'pharmacist' | 'cashier' | 'inventory';
 
 export interface AppUserTable extends Timestamps {
   id: string;
@@ -153,6 +217,8 @@ export interface ProductTable extends Timestamps {
   /** In base units. */
   reorder_level: number | null;
   notes: string | null;
+  /** 0 for items that are never discounted (e.g. formula milk). */
+  allow_discount: Bool;
   is_active: Bool;
 }
 
@@ -201,6 +267,8 @@ export interface BatchTable extends Timestamps {
   /** Maximum retail price printed on this batch. */
   mrp: number | null;
   source: BatchSource;
+  /** 1 for the product's "Unrecorded stock" batch, which takes sales beyond recorded stock. */
+  is_placeholder: Bool;
 }
 
 export type MovementKind =
@@ -244,6 +312,230 @@ export interface AuditLogTable {
   before_json: string | null;
   after_json: string | null;
   reason: string | null;
+  /** Who approved it by PIN, when someone else had to. */
+  approved_by: string | null;
+  created_at: string;
+}
+
+/** One store setting; a missing key means the default from @app/config. */
+export interface SettingTable extends Timestamps {
+  id: string;
+  branch_id: string;
+  key: string;
+  value_json: string;
+}
+
+export interface ShiftTable extends Timestamps {
+  id: string;
+  branch_id: string;
+  device_id: string;
+  shift_no: number;
+  business_date: string;
+  status: 'open' | 'closed';
+  opened_by: string;
+  opened_at: string;
+  opening_float: number;
+  closed_by: string | null;
+  closed_at: string | null;
+  expected_cash: number | null;
+  counted_cash: number | null;
+  /** counted − expected. */
+  variance: number | null;
+  /** Cash left in the drawer for the next shift. */
+  float_left: number | null;
+  count_json: string | null;
+  close_note: string | null;
+}
+
+export type CashMovementCategory =
+  'expense' | 'supplier' | 'staff' | 'owner' | 'bank' | 'change' | 'other';
+
+/** Cash into or out of the drawer that isn't a sale. Signed: pay-outs are negative. */
+export interface CashMovementTable {
+  id: string;
+  branch_id: string;
+  device_id: string;
+  shift_id: string;
+  kind: 'pay_in' | 'pay_out';
+  category: CashMovementCategory;
+  amount: number;
+  note: string;
+  user_id: string;
+  approved_by: string | null;
+  created_at: string;
+}
+
+export type RxCheck = 'none' | 'seen' | 'not_seen';
+
+/** A completed sale. Never changes; a void is a separate sale_void row. */
+export interface SaleTable {
+  id: string;
+  branch_id: string;
+  device_id: string;
+  shift_id: string;
+  invoice_seq: number;
+  invoice_no: string;
+  business_date: string;
+  user_id: string;
+  line_count: number;
+  gross_total: number;
+  line_discount_total: number;
+  bill_discount_bp: number | null;
+  bill_discount: number;
+  /** gross − line discounts − bill discount. */
+  subtotal: number;
+  rounding: number;
+  /** subtotal + rounding: what the customer pays. */
+  total: number;
+  /** Tax included in the total. */
+  tax_total: number;
+  change_given: number;
+  cost_total: number | null;
+  rx_check: RxCheck;
+  approved_by: string | null;
+  created_at: string;
+}
+
+export type PriceSource = 'catalog' | 'mrp' | 'override';
+export type DiscountSource = 'none' | 'default' | 'manual';
+
+export interface SaleLineTable {
+  id: string;
+  sale_id: string;
+  line_no: number;
+  product_id: string;
+  unit_id: string;
+  /** Product title as sold, e.g. "Panadol 500mg Tablet". */
+  description: string;
+  /** Base units. */
+  qty: number;
+  /** As shown, e.g. "2 Strips". */
+  qty_text: string;
+  /** Price charged: price_amount for price_qty base units. */
+  price_amount: number;
+  price_qty: number;
+  price_source: PriceSource;
+  price_reason: string | null;
+  catalog_amount: number;
+  catalog_qty: number;
+  gross: number;
+  discount_source: DiscountSource;
+  line_discount_bp: number | null;
+  line_discount: number;
+  bill_discount_share: number;
+  net: number;
+  tax_class_id: string | null;
+  tax_rate_bp: number;
+  tax: number;
+  cost: number | null;
+  above_mrp: Bool;
+  rx_required: Bool;
+  controlled_schedule: string | null;
+  approved_by: string | null;
+  created_at: string;
+}
+
+export type BatchPick = 'fefo' | 'manual' | 'unrecorded';
+
+/** Which batch a line took its units from, frozen as it was at sale time. */
+export interface SaleLineBatchTable {
+  id: string;
+  sale_id: string;
+  sale_line_id: string;
+  batch_id: string;
+  movement_id: string;
+  qty: number;
+  pick: BatchPick;
+  stock_before: number;
+  batch_no: string;
+  expiry_date: string | null;
+  cost: number | null;
+  mrp: number | null;
+  created_at: string;
+}
+
+export interface SalePrescriptionTable {
+  id: string;
+  sale_id: string;
+  patient_name: string;
+  patient_phone: string | null;
+  prescriber_name: string;
+  prescriber_reg_no: string | null;
+  rx_date: string | null;
+  rx_ref: string | null;
+  dispensed_by: string;
+  created_at: string;
+}
+
+export interface SaleVoidTable {
+  id: string;
+  sale_id: string;
+  branch_id: string;
+  device_id: string;
+  shift_id: string;
+  user_id: string;
+  approved_by: string | null;
+  reason: string;
+  created_at: string;
+}
+
+export type ReturnReason =
+  'wrong_item' | 'doctor_changed' | 'side_effect' | 'damaged' | 'expired' | 'other';
+
+export interface SaleReturnTable {
+  id: string;
+  sale_id: string;
+  branch_id: string;
+  device_id: string;
+  shift_id: string;
+  return_seq: number;
+  return_no: string;
+  business_date: string;
+  user_id: string;
+  approved_by: string | null;
+  reason: ReturnReason;
+  note: string | null;
+  refund_net: number;
+  tax_total: number;
+  rounding: number;
+  refund_total: number;
+  cost_total: number | null;
+  created_at: string;
+}
+
+export interface SaleReturnLineTable {
+  id: string;
+  return_id: string;
+  sale_line_id: string;
+  sale_line_batch_id: string;
+  batch_id: string;
+  qty: number;
+  refund: number;
+  tax: number;
+  cost: number | null;
+  restock: Bool;
+  movement_id: string | null;
+  created_at: string;
+}
+
+export type PaymentDocType = 'sale' | 'void' | 'return';
+
+/** Money in (+) or out (−) for a document, in the shift whose drawer it touched. */
+export interface PaymentTable {
+  id: string;
+  branch_id: string;
+  device_id: string;
+  shift_id: string;
+  sale_id: string;
+  doc_type: PaymentDocType;
+  doc_id: string;
+  method: PaymentMethod;
+  wallet_provider: WalletProvider | null;
+  reference: string | null;
+  amount: number;
+  tendered: number | null;
+  change_given: number | null;
+  user_id: string;
   created_at: string;
 }
 
@@ -251,3 +543,9 @@ export type ProductRow = Selectable<ProductTable>;
 export type ProductUnitRow = Selectable<ProductUnitTable>;
 export type BatchRow = Selectable<BatchTable>;
 export type NewStockMovement = Insertable<StockMovementTable>;
+export type ShiftRow = Selectable<ShiftTable>;
+export type SaleRow = Selectable<SaleTable>;
+export type SaleLineRow = Selectable<SaleLineTable>;
+export type SaleLineBatchRow = Selectable<SaleLineBatchTable>;
+export type PaymentRow = Selectable<PaymentTable>;
+export type AppUserRow = Selectable<AppUserTable>;
