@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+node_modules
+dist
+coverage
+apps/till/src-tauri/target
+apps/till/src-tauri/gen
+apps/till/src-tauri/icons
+apps/till/test-results
+apps/till/playwright-report

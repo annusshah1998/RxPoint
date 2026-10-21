@@ -1,0 +1,35 @@
+{
+  "name": "pharmacy-pos",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @app/till dev",
+    "tauri": "pnpm --filter @app/till tauri",
+    "build": "pnpm --filter @app/till build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "pnpm --filter @app/till test:e2e",
+    "check:name": "node scripts/product-name.mjs --check",
+    "sync:name": "node scripts/product-name.mjs --write",
+    "check": "pnpm check:name && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
+    "eslint": "10.12.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vitest": "5.0.4"
+  }
+}

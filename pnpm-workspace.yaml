@@ -1,0 +1,7 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Refuse packages published less than 7 days ago (in minutes).
+# Most compromised releases are caught and pulled within days.
+minimumReleaseAge: 10080

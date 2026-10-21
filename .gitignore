@@ -1,0 +1,21 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Tauri / Rust
+apps/till/src-tauri/target/
+apps/till/src-tauri/gen/schemas/
+
+# Playwright
+apps/till/test-results/
+apps/till/playwright-report/
+
+# Local databases
+*.db
+*.db-wal
+*.db-shm

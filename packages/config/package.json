@@ -1,0 +1,12 @@
+{
+  "name": "@app/config",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./product.json": "./product.json"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
