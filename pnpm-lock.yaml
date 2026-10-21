@@ -112,6 +112,8 @@ importers:
         specifier: 5.5.2
         version: 5.5.2
 
+  packages/receipt: {}
+
 packages:
 
   '@babel/code-frame@7.29.7':

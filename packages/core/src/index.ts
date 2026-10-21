@@ -4,6 +4,7 @@ export * from './fefo';
 export * from './forms';
 export * from './ids';
 export * from './money';
+export * from './pin';
 export * from './pricing';
 export * from './qty-input';
 export * from './text';
