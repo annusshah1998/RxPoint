@@ -17,6 +17,9 @@ export async function setUpTill(page: Page) {
   await page.getByRole('button', { name: 'Start using the till' }).click();
   await expect(page.getByRole('heading', { name: 'Write down this recovery code' })).toBeVisible();
   await page.getByRole('button', { name: 'I have written it down' }).click();
+  // The till opens on the Sale screen; most tests start from Products.
+  await expect(page.getByRole('heading', { name: 'Sale' })).toBeVisible();
+  await page.getByRole('link', { name: 'Products' }).click();
   await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible();
   return problems;
 }

@@ -7,6 +7,8 @@ import { ImportScreen } from '../features/import/ImportScreen';
 import { ProductDetailScreen } from '../features/products/ProductDetailScreen';
 import { ProductEditScreen } from '../features/products/ProductEditScreen';
 import { ProductsScreen } from '../features/products/ProductsScreen';
+import { SaleScreen } from '../features/sale/SaleScreen';
+import { SalesScreen } from '../features/sales/SalesScreen';
 import { ShiftScreen } from '../features/shift/ShiftScreen';
 import { StaffScreen } from '../features/staff/StaffScreen';
 import { StockScreen } from '../features/stock/StockScreen';
@@ -16,6 +18,8 @@ import { routeHash, useRoute, type Route } from './router';
 import { useServices } from './services';
 
 const NAV: { label: string; route: Route; matches: Route['name'][]; needs?: Permission }[] = [
+  { label: S.nav.sale, route: { name: 'sale' }, matches: ['sale'], needs: 'sale.sell' },
+  { label: S.nav.sales, route: { name: 'sales' }, matches: ['sales'], needs: 'sale.reprint' },
   { label: S.nav.shift, route: { name: 'shift' }, matches: ['shift'], needs: 'shift.open' },
   {
     label: S.nav.products,
@@ -95,14 +99,19 @@ export function Shell() {
       </aside>
       <main className="main">
         {platform === 'browser' && <PreviewBanner />}
-        <Screen route={route} />
+        <Screen route={route} canSell={can(store.userRole, 'sale.sell')} />
       </main>
     </div>
   );
 }
 
-function Screen({ route }: { route: Route }) {
+function Screen({ route, canSell }: { route: Route; canSell: boolean }) {
   switch (route.name) {
+    case 'sale':
+      // The home screen; staff who don't sell (inventory) start on Products.
+      return canSell ? <SaleScreen /> : <ProductsScreen />;
+    case 'sales':
+      return <SalesScreen />;
     case 'products':
       return <ProductsScreen />;
     case 'product-new':

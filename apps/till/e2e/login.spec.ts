@@ -40,7 +40,7 @@ test('staff log in with their own PIN; wrong PINs lock; the owner can recover', 
   await expect(page.getByText('Wrong PIN — 4 tries left')).toBeVisible();
   await page.getByLabel('PIN for Sana').fill('1470');
   await page.getByLabel('PIN for Sana').press('Enter');
-  await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sale' })).toBeVisible();
   await expect(page.getByText('Till T1 · Sana')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Staff' })).toHaveCount(0);
 
@@ -71,7 +71,7 @@ test('staff log in with their own PIN; wrong PINs lock; the owner can recover', 
   expect(newCode).not.toBe(recoveryCode);
   await page.getByRole('button', { name: 'I have written it down' }).click();
   await logIn(page, 'Annus', '864208');
-  await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sale' })).toBeVisible();
 
   expect(problems).toEqual([]);
 });
@@ -83,6 +83,6 @@ test('a reload asks for the PIN again', async ({ page }) => {
   // With only one person, they are already chosen.
   await page.getByLabel('PIN for Annus').fill(OWNER_PIN);
   await page.getByLabel('PIN for Annus').press('Enter');
-  await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sale' })).toBeVisible();
   expect(problems).toEqual([]);
 });

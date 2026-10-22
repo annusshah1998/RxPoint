@@ -2,6 +2,8 @@ import { useCallback, useSyncExternalStore } from 'react';
 
 /** Screens. The URL hash mirrors the route so reloads and the back key work. */
 export type Route =
+  | { name: 'sale' }
+  | { name: 'sales' }
   | { name: 'products' }
   | { name: 'product-new' }
   | { name: 'product'; id: string }
@@ -14,18 +16,26 @@ export type Route =
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   const [section, id, action] = parts;
+  if (section === 'sales') return { name: 'sales' };
+  if (section === 'products') {
+    if (id === 'new') return { name: 'product-new' };
+    if (id && action === 'edit') return { name: 'product-edit', id };
+    if (id) return { name: 'product', id };
+    return { name: 'products' };
+  }
   if (section === 'stock') return { name: 'stock' };
   if (section === 'import') return { name: 'import' };
   if (section === 'staff') return { name: 'staff' };
   if (section === 'shift') return { name: 'shift' };
-  if (section === 'products' && id === 'new') return { name: 'product-new' };
-  if (section === 'products' && id && action === 'edit') return { name: 'product-edit', id };
-  if (section === 'products' && id) return { name: 'product', id };
-  return { name: 'products' };
+  return { name: 'sale' };
 }
 
 export function routeHash(route: Route): string {
   switch (route.name) {
+    case 'sale':
+      return '#/sale';
+    case 'sales':
+      return '#/sales';
     case 'products':
       return '#/products';
     case 'product-new':

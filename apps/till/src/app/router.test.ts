@@ -3,6 +3,10 @@ import { parseHash, routeHash, type Route } from './router';
 
 describe('router', () => {
   it.each<Route>([
+    { name: 'sale' },
+    { name: 'sales' },
+    { name: 'shift' },
+    { name: 'staff' },
     { name: 'products' },
     { name: 'product-new' },
     { name: 'product', id: '0192b6c0-0000-7000-8000-000000000000' },
@@ -13,8 +17,9 @@ describe('router', () => {
     expect(parseHash(routeHash(route))).toEqual(route);
   });
 
-  it('falls back to products for unknown hashes', () => {
-    expect(parseHash('')).toEqual({ name: 'products' });
-    expect(parseHash('#/nowhere')).toEqual({ name: 'products' });
+  it('opens the sale screen by default', () => {
+    expect(parseHash('')).toEqual({ name: 'sale' });
+    expect(parseHash('#/')).toEqual({ name: 'sale' });
+    expect(parseHash('#/nowhere')).toEqual({ name: 'sale' });
   });
 });
