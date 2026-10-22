@@ -341,7 +341,7 @@ function ScanBox({
         spellCheck={false}
       />
       {results.length > 0 && (
-        <ul className="scan-results" role="listbox" aria-label={S.sale.scanLabel}>
+        <ul className="scan-results" role="listbox" aria-label={S.sale.matches}>
           {results.map((hit, i) => (
             <li
               key={hit.id}
