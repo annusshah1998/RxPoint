@@ -6,14 +6,28 @@
 export type Align = 'left' | 'center' | 'right';
 
 export type ReceiptLine =
-  /** Free text, wrapped to the paper width. `large` prints double width and height. */
-  | { kind: 'text'; text: string; align?: Align; bold?: boolean; large?: boolean }
+  /**
+   * Free text, wrapped to the paper width. `large` prints double width and height.
+   * `indent` starts every wrapped line that many characters in.
+   */
+  | {
+      kind: 'text';
+      text: string;
+      align?: Align;
+      bold?: boolean;
+      large?: boolean;
+      indent?: number;
+    }
   /** Left text and right text on one line, e.g. "Total" … "Rs 1,250.00". */
-  | { kind: 'pair'; left: string; right: string; bold?: boolean }
+  | { kind: 'pair'; left: string; right: string; bold?: boolean; indent?: number }
   /** A row of fixed-width columns. Widths are characters; the last column fills the rest. */
   | { kind: 'columns'; cells: { text: string; width: number; align?: Align }[]; bold?: boolean }
   | { kind: 'rule'; char?: '-' | '=' }
-  | { kind: 'blank' };
+  | { kind: 'blank' }
+  /** A CODE128 barcode (e.g. the invoice number, scanned at returns). */
+  | { kind: 'barcode'; data: string }
+  /** Extra paper, e.g. before the cut. */
+  | { kind: 'feed'; lines: number };
 
 export interface ReceiptDocument {
   /** Characters per line: 48 for 80mm paper (font A), 32 for 58mm. */
@@ -21,11 +35,15 @@ export interface ReceiptDocument {
   lines: ReceiptLine[];
   /** Cut the paper at the end (printers without a cutter ignore it). */
   cut?: boolean;
-  /** Pulse the cash drawer connected to the printer. */
-  openDrawer?: boolean;
+  /**
+   * Open the cash drawer wired to the printer (on pin 2 or 5), first thing, so it opens
+   * while the receipt prints.
+   */
+  drawer?: { pin: 2 | 5 } | null;
 }
 
-export const PAPER_WIDTH = { mm80: 48, mm58: 32 } as const;
+/** Characters per line: 80 mm paper in font A (48) or a narrower font setting (42), 58 mm (32). */
+export const PAPER_WIDTH = { mm80: 48, mm80small: 42, mm58: 32 } as const;
 
 /**
  * Thermal printers here print a basic code page, so text is reduced to printable ASCII.

@@ -573,6 +573,7 @@ export async function completeSale(
 
     // Batches that exist only once the sale does: placeholders and packs typed by hand.
     const placeholderFor = new Map<string, string>();
+    const packBatchFor = new Map<string, string>();
     const packBatchCreated: string[] = [];
     for (const line of build.lines) {
       for (const part of line.parts) {
@@ -606,7 +607,19 @@ export async function completeSale(
           }
           part.batchId = id;
         } else if (part.newPackBatch) {
+          // Two lines of the same pack share one new batch.
+          const key = [
+            line.product.id,
+            part.newPackBatch.batchNo.toLowerCase(),
+            part.newPackBatch.expiryDate,
+          ].join('|');
+          const made = packBatchFor.get(key);
+          if (made) {
+            part.batchId = made;
+            continue;
+          }
           const id = ctx.newId();
+          packBatchFor.set(key, id);
           await insertRow(trx, now, 'batch', {
             id,
             product_id: line.product.id,

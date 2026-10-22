@@ -54,27 +54,43 @@ export function allocateForSale(
   const real = lots.filter((l) => !l.placeholder);
 
   if (options.manual && options.manual.length > 0) {
-    const parts: SalePart[] = [];
-    let sum = 0;
+    // The same batch picked twice counts as one pick of the total.
+    const merged = new Map<string, number>();
     for (const pick of options.manual) {
-      const lot = lots.find((l) => l.batchId === pick.batchId);
-      if (!lot) return { ok: false, error: 'unknown_batch', batchId: pick.batchId };
-      if (lot.expiryDate !== null && lot.expiryDate < options.today) {
-        return { ok: false, error: 'expired', batchId: pick.batchId };
-      }
       if (!Number.isSafeInteger(pick.qty) || pick.qty <= 0) {
         return { ok: false, error: 'manual_qty', batchId: pick.batchId };
       }
+      merged.set(pick.batchId, (merged.get(pick.batchId) ?? 0) + pick.qty);
+    }
+    const parts: SalePart[] = [];
+    let sum = 0;
+    for (const [batchId, pickQty] of merged) {
+      const lot = lots.find((l) => l.batchId === batchId);
+      if (!lot) return { ok: false, error: 'unknown_batch', batchId };
+      if (lot.expiryDate !== null && lot.expiryDate < options.today) {
+        return { ok: false, error: 'expired', batchId };
+      }
       parts.push({
         batchId: lot.batchId,
-        qty: pick.qty,
+        qty: pickQty,
         pick: lot.placeholder ? 'unrecorded' : 'manual',
         stockBefore: lot.qty,
       });
-      sum += pick.qty;
+      sum += pickQty;
     }
     if (sum !== qty) return { ok: false, error: 'manual_qty' };
-    return { ok: true, parts, shortfall: 0, expiredQty: 0, needsExpiryCheck: false };
+    // Picking "unrecorded stock" by hand is still selling beyond recorded stock.
+    const unrecorded = parts.filter((p) => p.pick === 'unrecorded').reduce((s, p) => s + p.qty, 0);
+    const expiredQty = real
+      .filter((l) => l.qty > 0 && l.expiryDate !== null && l.expiryDate < options.today)
+      .reduce((s, l) => s + l.qty, 0);
+    return {
+      ok: true,
+      parts,
+      shortfall: unrecorded,
+      expiredQty,
+      needsExpiryCheck: unrecorded > 0 && expiredQty > 0,
+    };
   }
 
   const fefo = allocateFefo(real, qty, { today: options.today });

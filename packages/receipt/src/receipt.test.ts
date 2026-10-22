@@ -7,7 +7,7 @@ import {
   wrap,
   type ReceiptDocument,
 } from './document';
-import { ESCPOS, renderEscPos, renderText } from './render';
+import { ESCPOS, decodeEscPos, drawerKick, renderEscPos, renderText } from './render';
 
 describe('layout helpers', () => {
   it('wraps at spaces and hard-breaks long words', () => {
@@ -64,7 +64,7 @@ const doc: ReceiptDocument = {
     { kind: 'text', text: 'TOTAL 52', align: 'center', large: true },
     { kind: 'blank' },
   ],
-  openDrawer: true,
+  drawer: { pin: 2 },
 };
 
 describe('renderText', () => {
@@ -101,13 +101,56 @@ describe('renderEscPos', () => {
     expect(text).toContain(`${large}    TOTAL 52\n`);
   });
 
-  it('cuts and opens the drawer at the end', () => {
-    const tail = [...ESCPOS.feedAndCut, ...ESCPOS.openDrawer];
-    expect(bytes.slice(-tail.length)).toEqual(tail);
+  it('opens the drawer first, while the receipt prints, and cuts at the end', () => {
+    expect(bytes.slice(2, 7)).toEqual([...ESCPOS.drawerPin2]);
+    expect(bytes.slice(-ESCPOS.feedAndCut.length)).toEqual([...ESCPOS.feedAndCut]);
+    const pin5 = Array.from(renderEscPos({ ...doc, drawer: { pin: 5 } }));
+    expect(pin5.slice(2, 7)).toEqual([...ESCPOS.drawerPin5]);
   });
 
   it('can skip the cut and the drawer', () => {
-    const plain = Array.from(renderEscPos({ ...doc, cut: false, openDrawer: false }));
+    const plain = Array.from(renderEscPos({ ...doc, cut: false, drawer: null }));
     expect(plain.slice(-1)).toEqual([0x0a]);
+    expect(plain.slice(2, 4)).toEqual([...ESCPOS.codePage437].slice(0, 2));
+  });
+
+  it('opens just the drawer', () => {
+    expect(Array.from(drawerKick(5))).toEqual([...ESCPOS.init, ...ESCPOS.drawerPin5]);
+  });
+});
+
+describe('indents, barcodes and feeds', () => {
+  const sale: ReceiptDocument = {
+    width: 32,
+    lines: [
+      { kind: 'text', text: '1 Augmentin 625mg Tablet' },
+      { kind: 'pair', left: '1 Strip, 2 Tablets @ 436.20/Strip', right: '581.60', indent: 2 },
+      { kind: 'text', text: 'Batch AU1123 Exp Mar 2027', indent: 2 },
+      { kind: 'feed', lines: 1 },
+      { kind: 'text', text: 'TOTAL 1965', align: 'center', large: true },
+      { kind: 'barcode', data: 'T1-000123' },
+    ],
+  };
+
+  it('keeps indents when wrapping', () => {
+    expect(renderText(sale).every((l) => l.length <= 32)).toBe(true);
+    expect(renderText(sale)).toEqual([
+      '1 Augmentin 625mg Tablet        ',
+      '  1 Strip, 2 Tablets @          ',
+      '  436.20/Strip            581.60',
+      '  Batch AU1123 Exp Mar 2027     ',
+      '',
+      '      T O T A L   1 9 6 5       ',
+      '          *T1-000123*           ',
+    ]);
+  });
+
+  it('prints the barcode as CODE128 and decodes back to the preview', () => {
+    const bytes = renderEscPos(sale);
+    const text = String.fromCharCode(...bytes);
+    expect(text).toContain(String.fromCharCode(0x1d, 0x6b, 73, 11, 0x7b, 0x42) + 'T1-000123');
+    expect(decodeEscPos(bytes, 32).map((l) => l.trimEnd())).toEqual(
+      renderText(sale).map((l) => l.trimEnd()),
+    );
   });
 });

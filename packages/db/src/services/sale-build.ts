@@ -316,6 +316,8 @@ export function buildSale(input: BuildContext): SaleBuild {
   const batchOf = (productId: string, id: string | null) =>
     (data.batches.get(productId) ?? []).find((b) => (id === null ? b.placeholder : b.id === id));
 
+  // Packs typed by hand that aren't on record yet: how much earlier lines took from each.
+  const newPackUsed = new Map<string, number>();
   const built: BuiltLine[] = [];
   cart.lines.forEach((line, index) => {
     const at = `lines.${index}`;
@@ -408,6 +410,9 @@ export function buildSale(input: BuildContext): SaleBuild {
           ]),
         );
       }
+      const packKey = `${line.productId}|${pb.batchNo.trim().toLowerCase()}|${pb.expiryDate}`;
+      const usedBefore = newPackUsed.get(packKey) ?? 0;
+      if (!existing) newPackUsed.set(packKey, usedBefore + line.qty);
       parts = [
         existing
           ? toPart(
@@ -420,7 +425,7 @@ export function buildSale(input: BuildContext): SaleBuild {
               placeholder: false,
               qty: line.qty,
               pick: 'manual',
-              stockBefore: 0,
+              stockBefore: -usedBefore,
               batchNo: pb.batchNo.trim(),
               expiryDate: pb.expiryDate,
               cost: product.cost ? priceForQty(product.cost, line.qty) : null,
@@ -431,10 +436,29 @@ export function buildSale(input: BuildContext): SaleBuild {
               mrpPrice: pb.mrp === null ? null : { amount: pb.mrp, perQty: product.price.perQty },
             },
       ];
+      // Selling more than is recorded for the pack's batch (or a batch not on record).
+      const before = parts[0]!.stockBefore;
+      if (before < line.qty) {
+        warnings.push({
+          kind: 'past_zero',
+          lineKey: line.key,
+          recorded: Math.max(0, before),
+          qty: line.qty,
+        });
+      }
     } else {
       if (controlled && !line.batches) {
         fields[`${at}.batches`] = 'Pick the batch printed on the pack';
         return;
+      }
+      if (controlled) {
+        // A controlled drug's register needs the real batch, never "unrecorded stock".
+        const j = line.batches!.findIndex((b) => batchOf(line.productId, b.batchId)?.placeholder);
+        if (j >= 0) {
+          fields[`${at}.batches.${j}.batchId`] =
+            'Pick the batch printed on the pack, or type it in';
+          return;
+        }
       }
       const result = allocateForSale(productLots, line.qty, {
         today: expiryToday,

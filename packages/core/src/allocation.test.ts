@@ -137,4 +137,31 @@ describe('allocationCost', () => {
       source: 'unknown',
     });
   });
+
+  it('merges a batch picked twice, so selling past its stock shows', () => {
+    const r = allocateForSale(
+      [{ batchId: 'A', expiryDate: '2027-01-31', qty: 10, placeholder: false }],
+      12,
+      {
+        today,
+        manual: [
+          { batchId: 'A', qty: 6 },
+          { batchId: 'A', qty: 6 },
+        ],
+      },
+    );
+    expect(r.ok && r.parts).toEqual([{ batchId: 'A', qty: 12, pick: 'manual', stockBefore: 10 }]);
+  });
+
+  it('treats a hand-picked unrecorded-stock batch like any sale beyond stock', () => {
+    const r = allocateForSale(
+      [
+        { batchId: 'OLD', expiryDate: '2026-09-30', qty: 20, placeholder: false },
+        { batchId: 'PH', expiryDate: null, qty: -1, placeholder: true },
+      ],
+      10,
+      { today, manual: [{ batchId: 'PH', qty: 10 }] },
+    );
+    expect(r).toMatchObject({ ok: true, shortfall: 10, expiredQty: 20, needsExpiryCheck: true });
+  });
 });

@@ -12,6 +12,8 @@ export * from './services/clock';
 export * from './services/drafts';
 export * from './services/guards';
 export * from './services/import';
+export * from './services/integrity';
+export * from './services/receipt-data';
 export * from './services/sale-build';
 export * from './services/sales';
 export * from './services/search';

@@ -15,6 +15,7 @@
     "@app/config": "workspace:*",
     "@app/core": "workspace:*",
     "@app/db": "workspace:*",
+    "@app/receipt": "workspace:*",
     "@sqlite.org/sqlite-wasm": "3.53.4-build2",
     "@tanstack/react-query": "5.104.2",
     "@tauri-apps/api": "2.12.2",

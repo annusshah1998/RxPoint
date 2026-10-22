@@ -12,6 +12,7 @@ import { sql } from 'kysely';
 import { describe, expect, it } from 'vitest';
 import type { Db } from '../executor';
 import { META, setMeta } from '../meta';
+import { insertRow } from '../writes';
 import {
   asRole,
   checkout,
@@ -23,6 +24,7 @@ import {
 } from '../test-helpers';
 import { createProduct, getProduct, toProductInput, updateProduct } from './catalog';
 import { completeSale, getSellable, grantApproval, planSale } from './checkout';
+import { checkRecords } from './integrity';
 import { saveDraft } from './drafts';
 import { describeRefund, getSale, listSales, voidSale, findSale } from './sales';
 import { updateStoreSettings } from './settings';
@@ -39,17 +41,16 @@ async function store(t?: TestApp) {
   t ??= await createTestApp();
   const now = '2026-10-21T09:00:00.000Z';
   const vat = 'tax-18';
-  await t.db
-    .insertInto('tax_class')
-    .values({
+  await t.db.transaction().execute((trx) =>
+    insertRow(trx, now, 'tax_class', {
       id: vat,
       name: 'GST 18%',
       rate_bp: 1800,
       is_active: 1,
       created_at: now,
       updated_at: now,
-    })
-    .execute();
+    }),
+  );
   const panadol = await createProduct(t.app, tabletInput());
   const brufen = await createProduct(
     t.app,
@@ -814,5 +815,80 @@ describe('voidSale', () => {
     }
     expect(await findSale(s.app, 'T2-000001')).toBeNull();
     expect(await listSales(s.app, { query: '000001' })).toHaveLength(1);
+  });
+});
+
+describe('controlled drugs and hand-picked batches', () => {
+  async function valium(s: Store) {
+    return createProduct(
+      s.app,
+      tabletInput({
+        name: 'Valium',
+        strength: '5mg',
+        ingredients: [{ generic: 'Diazepam', strength: '5mg' }],
+        units: [
+          { name: 'Tablet', qty: 1, isSellable: true, barcodes: [] },
+          { name: 'Strip', qty: 10, isSellable: true, barcodes: [] },
+        ],
+        salePrice: 5000,
+        priceQty: 10,
+      }),
+    );
+  }
+
+  it('never sells a controlled drug from unrecorded stock', async () => {
+    const s = await store();
+    await openTestShift(s.app);
+    const p = await valium(s);
+    // Sold before it was marked controlled, so it has an unrecorded-stock batch.
+    await checkout(s.app, await ringUp(s.app, [{ productId: p.id, qty: 5 }]));
+    const current = await getProduct(s.app, p.id);
+    await updateProduct(s.app, p.id, { ...toProductInput(current!), controlledSchedule: 'B' });
+    const placeholder = (await getSellable(s.app, p.id))!.batches.find((b) => b.placeholder)!;
+    let cart = await ringUp(s.app, [{ productId: p.id, qty: 10 }]);
+    cart = pickBatches(cart, 'k1', [{ batchId: placeholder.batchId, qty: 10 }]);
+    expect((await planSale(s.app, cart)).fields).toEqual({
+      'lines.0.batches.0.batchId': 'Pick the batch printed on the pack, or type it in',
+    });
+  });
+
+  it('creates one batch for a pack typed on two lines, and warns past zero', async () => {
+    const s = await store();
+    await openTestShift(s.app);
+    const p = await valium(s);
+    const current = await getProduct(s.app, p.id);
+    await updateProduct(s.app, p.id, { ...toProductInput(current!), controlledSchedule: 'B' });
+    const pack = { batchNo: 'VX221', expiryDate: '2027-12-31', mrp: 5200 };
+    let cart = await ringUp(s.app, [
+      { productId: p.id, qty: 10, discount: { kind: 'percent', bp: 100 } },
+      { productId: p.id, qty: 5 },
+    ]);
+    cart = setPackBatch(cart, 'k1', pack);
+    cart = setPackBatch(cart, 'k2', pack);
+    cart = setPrescription(cart, { patientName: 'Ali', prescriberName: 'Dr Khan' });
+    const plan = await planSale(s.app, cart);
+    expect(plan.warnings.filter((w) => w.kind === 'past_zero')).toHaveLength(2);
+    await checkout(s.app, cart);
+    const stock = await getProductStock(s.app, p.id, { includeEmpty: true });
+    expect(stock.batches.map((b) => [b.batchNo, b.qty])).toEqual([['VX221', -15]]);
+    expect(await checkRecords(s.db)).toEqual([]);
+  });
+
+  it('warns when a hand-picked batch is sold past its stock, even picked twice', async () => {
+    const s = await store();
+    await openTestShift(s.app);
+    let cart = await ringUp(s.app, [{ productId: s.panadol.id, qty: 20 }]);
+    cart = pickBatches(cart, 'k1', [
+      { batchId: s.batches.pn01, qty: 10 },
+      { batchId: s.batches.pn01, qty: 10 },
+    ]);
+    const plan = await planSale(s.app, cart);
+    expect(plan.lines[0]!.parts).toMatchObject([{ batchNo: 'PN-01', qty: 20 }]);
+    expect(plan.warnings).toContainEqual({
+      kind: 'past_zero',
+      lineKey: 'k1',
+      recorded: 45,
+      qty: 20,
+    });
   });
 });
