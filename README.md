@@ -8,7 +8,10 @@ The name is a placeholder and will change before launch. It lives only in
 `packages/config/product.json`.
 
 **Status:** milestone 1 of 7 is done: catalog, search, opening stock, expiry views and
-CSV import. Checkout is next. See [docs/plan.md](docs/plan.md).
+CSV import. Milestone 2 (checkout) is in progress: login and roles, shifts, the Sale
+screen, payments, hold/resume, void, receipt preview and backups work; returns and real
+printing are next. No printer or scanner is needed to try it. See
+[docs/plan.md](docs/plan.md).
 
 ## Try it
 
@@ -18,6 +21,10 @@ Prerequisites: Node 22.13+, pnpm 10 (`corepack enable`).
 pnpm install
 pnpm dev            # browser preview at http://localhost:1420 (data stays in that browser)
 ```
+
+End-to-end tests need a Chromium for Playwright: run
+`pnpm --filter @app/till exec playwright install chromium` once, or point `CHROMIUM_PATH`
+at an installed Chromium.
 
 To run the desktop app you also need Rust (https://rustup.rs) and, on Windows, the
 Microsoft C++ Build Tools and WebView2 (already on Windows 10/11). See
