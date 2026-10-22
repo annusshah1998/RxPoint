@@ -94,7 +94,9 @@ Playwright `getByLabel`. Keep it keyboard-friendly: scanners type fast and press
 
 ## Status
 
-M1 (foundations, catalog, stock, import) is done. Next: M2 checkout — PIN login and
-roles, shifts, sale screen with loose quantities and FEFO, discounts, split payments,
-hold/resume, returns, 80mm ESC/POS receipt and cash drawer (via Rust), audit log,
-automatic local backups.
+M1 (foundations, catalog, stock, import) is done. M2 checkout is in progress (see
+`docs/plan.md` and the build order in `docs/m2-design.md`): login, roles and approvals,
+shifts, the Sale screen (the home route), batch picker, discounts, controlled-drug
+capture, split payments, hold/resume, void, receipt preview and backups are built. Left:
+returns, real printing and the cash drawer, the clock banner, the scan detector, a
+full-day e2e test and the ADRs. No printer or scanner is needed to run or test the till.
