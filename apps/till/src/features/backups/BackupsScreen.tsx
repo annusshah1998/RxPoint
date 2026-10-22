@@ -79,7 +79,7 @@ export function BackupsScreen() {
         <p className="muted">{S.backups.schedule}</p>
       </Card>
       {log.data?.length === 0 ? (
-        <EmptyState>{S.backups.never}</EmptyState>
+        <EmptyState>{S.backups.noLog}</EmptyState>
       ) : (
         <Card>
           <table className="table">

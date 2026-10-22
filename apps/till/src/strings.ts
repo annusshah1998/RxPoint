@@ -189,6 +189,11 @@ export const S = {
     rounding: 'Rounding',
     total: 'Total',
     lines: (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`,
+    noTotal: '—',
+    fixToTotal: (lines: number) =>
+      lines === 0
+        ? 'Fix the marked problem to see the total'
+        : `Fix the marked ${lines === 1 ? 'line' : `${lines} lines`} to see the total`,
     pay: 'Pay',
     payKey: 'F9',
     hold: 'Hold',
@@ -416,6 +421,7 @@ export const S = {
     folder: (dir: string) => `Folder: ${dir}`,
     lastOk: (when: string) => `Last good backup: ${when}`,
     never: 'No backup yet',
+    noLog: 'Each backup, good or failed, will be listed here.',
     overdue: 'No backup for over a day. Back up now.',
     now: 'Back up now',
     working: 'Backing up…',

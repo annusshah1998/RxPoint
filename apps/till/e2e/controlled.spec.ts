@@ -35,6 +35,7 @@ test('a cashier sells a controlled drug and gives a big discount with a pharmaci
   await expect(page.getByRole('option', { name: /Valium 5mg/ })).toBeVisible();
   await scan.press('Enter');
   await expect(page.getByRole('row', { name: /Valium 5mg/ })).toContainText('Controlled (B)');
+  await expect(page.getByText('Fix the marked line to see the total')).toBeVisible();
 
   // No batch on record: type it from the pack.
   await page.keyboard.press('F4');
@@ -42,6 +43,7 @@ test('a cashier sells a controlled drug and gives a big discount with a pharmaci
   await page.getByLabel('Expiry on the pack').fill('12/2027');
   await page.getByRole('button', { name: 'Use this batch' }).click();
   await expect(page.getByRole('row', { name: /Valium 5mg/ })).toContainText('VX221');
+  await expect(page.getByText(/to see the total/)).toBeHidden();
 
   // 10% off Calpol: above the cashier's 5% limit.
   await scan.fill('calpol');

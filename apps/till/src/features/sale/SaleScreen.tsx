@@ -31,6 +31,7 @@ import {
   type ProductHit,
   type SaleWarning,
   type SalePlan,
+  timestamp,
 } from '@app/db';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
@@ -326,13 +327,7 @@ function ScanBox({
       e.preventDefault();
       const line = cart.lines.find((l) => l.key === key)!;
       update((c) =>
-        removeLine(
-          c,
-          key,
-          cart.userId,
-          new Date().toISOString(),
-          priceForQty(line.price, line.qty),
-        ),
+        removeLine(c, key, cart.userId, timestamp(ctx), priceForQty(line.price, line.qty)),
       );
     } else if (e.ctrlKey && e.key.toLowerCase() === 'z' && empty) {
       e.preventDefault();
@@ -465,6 +460,7 @@ function CartTable({
   onFocusScan: () => void;
   onPickBatch: (lineKey: string) => void;
 }) {
+  const { ctx } = useServices();
   if (cart.lines.length === 0) {
     return (
       <div className="cart-empty">
@@ -582,7 +578,7 @@ function CartTable({
                           c,
                           line.key,
                           cart.userId,
-                          new Date().toISOString(),
+                          timestamp(ctx),
                           priceForQty(line.price, line.qty),
                         ),
                       );
@@ -632,6 +628,13 @@ function TotalsPanel({
   const { store } = useServices();
   const t = plan?.totals;
   const hasLines = cart.lines.length > 0;
+  // Any problem (e.g. a controlled drug without its batch) stops the total being worked out.
+  const pending = hasLines && plan !== undefined && !t;
+  const badLines = new Set(
+    Object.keys(plan?.fields ?? {})
+      .map((k) => /^lines\.(\d+)\./.exec(k)?.[1])
+      .filter(Boolean),
+  ).size;
   const row = (label: string, value: number, show = true) =>
     show ? (
       <div className="totals-row">
@@ -642,15 +645,16 @@ function TotalsPanel({
   return (
     <aside className="till-side" aria-label={S.sale.total}>
       <div className="totals">
-        {row(S.sale.itemsTotal, t?.grossTotal ?? 0)}
+        {row(S.sale.itemsTotal, t?.grossTotal ?? 0, !pending)}
         {row(S.sale.itemDiscounts, -(t?.lineDiscountTotal ?? 0), (t?.lineDiscountTotal ?? 0) > 0)}
         {row(S.sale.billDiscount, -(t?.billDiscount ?? 0), (t?.billDiscount ?? 0) > 0)}
         {row(S.sale.rounding, t?.rounding ?? 0, (t?.rounding ?? 0) !== 0)}
         <div className="totals-grand" data-testid="sale-total">
           <span>{S.sale.total}</span>
-          <span>{formatMoney(hasLines ? (t?.total ?? 0) : 0)}</span>
+          <span>{pending ? S.sale.noTotal : formatMoney(hasLines ? (t?.total ?? 0) : 0)}</span>
         </div>
         <div className="muted">{S.sale.lines(cart.lines.length)}</div>
+        {pending && <div className="totals-note">{S.sale.fixToTotal(badLines)}</div>}
       </div>
       <div className="till-actions">
         <Button variant="primary" className="pay-button" disabled={!hasLines} onClick={onPay}>
