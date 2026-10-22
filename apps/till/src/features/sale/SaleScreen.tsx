@@ -40,6 +40,7 @@ import { productTitle } from '../../lib/format';
 import { useDebounced } from '../../lib/use-debounced';
 import { S } from '../../strings';
 import { Badge, Button, Card, Loading, Notice, PageHeader, TextInput } from '../../ui';
+import { BatchDialog } from './BatchDialog';
 import { DiscountDialog } from './DiscountDialog';
 import { HeldDialog, HoldDialog } from './HoldDialogs';
 import { PayDialog } from './PayDialog';
@@ -50,6 +51,7 @@ type Dialog =
   | { kind: 'hold' }
   | { kind: 'held' }
   | { kind: 'discount'; lineKey: string | null }
+  | { kind: 'batch'; lineKey: string }
   | null;
 
 export function SaleScreen() {
@@ -150,6 +152,9 @@ function Till() {
         e.preventDefault();
         if (e.shiftKey) setDialog({ kind: 'held' });
         else if (cart && cart.lines.length > 0) setDialog({ kind: 'hold' });
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        if (cart?.selectedKey) setDialog({ kind: 'batch', lineKey: cart.selectedKey });
       } else if (e.key === 'F6') {
         e.preventDefault();
         if (!cart || cart.lines.length === 0) return;
@@ -195,7 +200,13 @@ function Till() {
           ))}
         <ScanBox inputRef={scanRef} onAdd={addFromText} cart={cart} update={update} />
         {message && <Notice tone="warn">{message}</Notice>}
-        <CartTable cart={cart} plan={plan} update={update} onFocusScan={focusScan} />
+        <CartTable
+          cart={cart}
+          plan={plan}
+          update={update}
+          onFocusScan={focusScan}
+          onPickBatch={(lineKey) => setDialog({ kind: 'batch', lineKey })}
+        />
         <p className="muted till-keys">{S.sale.keysHint}</p>
       </div>
       <TotalsPanel
@@ -216,6 +227,9 @@ function Till() {
       />
       {dialog?.kind === 'pay' && <PayDialog sale={sale} onClose={close} />}
       {dialog?.kind === 'hold' && <HoldDialog sale={sale} onClose={close} />}
+      {dialog?.kind === 'batch' && (
+        <BatchDialog sale={sale} lineKey={dialog.lineKey} onClose={close} />
+      )}
       {dialog?.kind === 'held' && <HeldDialog sale={sale} onClose={close} />}
       {dialog?.kind === 'discount' && (
         <DiscountDialog
@@ -443,11 +457,13 @@ function CartTable({
   plan,
   update,
   onFocusScan,
+  onPickBatch,
 }: {
   cart: Cart;
   plan: SalePlan | undefined;
   update: (change: (cart: Cart) => Cart) => boolean;
   onFocusScan: () => void;
+  onPickBatch: (lineKey: string) => void;
 }) {
   if (cart.lines.length === 0) {
     return (
@@ -518,6 +534,28 @@ function CartTable({
                     {planned?.parts.some((p) => p.placeholder) && (
                       <Badge tone="neutral">{S.sale.chips.unrecorded}</Badge>
                     )}
+                    {planned?.parts
+                      .filter((p) => !p.placeholder && p.batchNo)
+                      .map((p, i) => (
+                        <span key={`${p.batchNo}-${i}`} className="muted batch-chip">
+                          {p.batchNo}
+                          {p.expiryDate ? ` · ${formatExpiry(p.expiryDate)}` : ''}
+                        </span>
+                      ))}
+                    <Button
+                      size="small"
+                      variant={
+                        line.rx === 'controlled' && !line.batches && !line.packBatch
+                          ? 'primary'
+                          : 'ghost'
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPickBatch(line.key);
+                      }}
+                    >
+                      {S.batches.pick} <kbd>{S.batches.key}</kbd>
+                    </Button>
                   </div>
                   {problem && <div className="field-error">{problem}</div>}
                 </td>

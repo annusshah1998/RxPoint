@@ -114,6 +114,11 @@ export function ProductForm({
               disabled={state.controlledSchedule !== ''}
               onChange={set('rxRequired')}
             />
+            <Checkbox
+              label={S.product.allowDiscount}
+              checked={state.allowDiscount}
+              onChange={set('allowDiscount')}
+            />
           </div>
           <div className="row">
             <Field label={S.product.rack} error={errors.rack}>

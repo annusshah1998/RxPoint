@@ -41,6 +41,7 @@ export interface ProductFormState {
   costPrice: string;
   taxClassId: string;
   rxRequired: boolean;
+  allowDiscount: boolean;
   controlledSchedule: string;
   rack: string;
   reorderLevel: string;
@@ -66,6 +67,7 @@ export function emptyProductForm(form: ProductForm = 'tablet'): ProductFormState
     costPrice: '',
     taxClassId: '',
     rxRequired: false,
+    allowDiscount: true,
     controlledSchedule: '',
     rack: '',
     reorderLevel: '',
@@ -97,6 +99,7 @@ export function productFormFromDetail(p: ProductDetail): ProductFormState {
     costPrice: p.costPrice === null ? '' : toMajorString(p.costPrice),
     taxClassId: p.taxClassId ?? '',
     rxRequired: p.rxRequired,
+    allowDiscount: p.allowDiscount,
     controlledSchedule: p.controlledSchedule ?? '',
     rack: p.rack ?? '',
     reorderLevel: p.reorderLevel === null ? '' : String(p.reorderLevel),
@@ -182,6 +185,7 @@ export function productFormToInput(state: ProductFormState): FormConversion {
       costPrice,
       taxClassId: state.taxClassId || null,
       rxRequired: state.rxRequired,
+      allowDiscount: state.allowDiscount,
       controlledSchedule: state.controlledSchedule || null,
       rack: state.rack,
       reorderLevel,

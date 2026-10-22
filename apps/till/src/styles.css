@@ -1065,3 +1065,26 @@ kbd {
   margin: 16px 0 8px;
   font-size: 15px;
 }
+
+.batch-list {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.batch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+}
+.batch-no {
+  min-width: 90px;
+  font-weight: 600;
+}
+.batch-chip {
+  font-size: 12px;
+}
