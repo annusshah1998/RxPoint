@@ -7,6 +7,8 @@ describe('router', () => {
     { name: 'sales' },
     { name: 'shift' },
     { name: 'staff' },
+    { name: 'backups' },
+    { name: 'settings' },
     { name: 'products' },
     { name: 'product-new' },
     { name: 'product', id: '0192b6c0-0000-7000-8000-000000000000' },

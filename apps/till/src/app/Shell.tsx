@@ -9,6 +9,9 @@ import { ProductEditScreen } from '../features/products/ProductEditScreen';
 import { ProductsScreen } from '../features/products/ProductsScreen';
 import { SaleScreen } from '../features/sale/SaleScreen';
 import { SalesScreen } from '../features/sales/SalesScreen';
+import { BackupsScreen } from '../features/backups/BackupsScreen';
+import { useBackupSchedule } from '../features/backups/use-backup-schedule';
+import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { ShiftScreen } from '../features/shift/ShiftScreen';
 import { StaffScreen } from '../features/staff/StaffScreen';
 import { StockScreen } from '../features/stock/StockScreen';
@@ -28,7 +31,14 @@ const NAV: { label: string; route: Route; matches: Route['name'][]; needs?: Perm
   },
   { label: S.nav.stock, route: { name: 'stock' }, matches: ['stock'] },
   { label: S.nav.import, route: { name: 'import' }, matches: ['import'], needs: 'import.run' },
+  { label: S.nav.backups, route: { name: 'backups' }, matches: ['backups'], needs: 'backup.run' },
   { label: S.nav.staff, route: { name: 'staff' }, matches: ['staff'], needs: 'users.manage' },
+  {
+    label: S.nav.settings,
+    route: { name: 'settings' },
+    matches: ['settings'],
+    needs: 'settings.edit',
+  },
 ];
 
 /** Locks the till after `minutes` without a key press, click or touch. */
@@ -54,6 +64,7 @@ export function Shell() {
   const { route, navigate } = useRoute();
   const settings = useQuery({ queryKey: ['settings'], queryFn: () => getStoreSettings(ctx) });
   useIdleLock(settings.data?.autoLockMinutes, lock);
+  useBackupSchedule();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -128,6 +139,10 @@ function Screen({ route, canSell }: { route: Route; canSell: boolean }) {
       return <StaffScreen />;
     case 'shift':
       return <ShiftScreen />;
+    case 'backups':
+      return <BackupsScreen />;
+    case 'settings':
+      return <SettingsScreen />;
   }
 }
 

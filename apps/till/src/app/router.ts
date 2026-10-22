@@ -11,7 +11,9 @@ export type Route =
   | { name: 'stock' }
   | { name: 'import' }
   | { name: 'staff' }
-  | { name: 'shift' };
+  | { name: 'shift' }
+  | { name: 'backups' }
+  | { name: 'settings' };
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
@@ -27,6 +29,8 @@ export function parseHash(hash: string): Route {
   if (section === 'import') return { name: 'import' };
   if (section === 'staff') return { name: 'staff' };
   if (section === 'shift') return { name: 'shift' };
+  if (section === 'backups') return { name: 'backups' };
+  if (section === 'settings') return { name: 'settings' };
   return { name: 'sale' };
 }
 
@@ -52,6 +56,10 @@ export function routeHash(route: Route): string {
       return '#/staff';
     case 'shift':
       return '#/shift';
+    case 'backups':
+      return '#/backups';
+    case 'settings':
+      return '#/settings';
   }
 }
 

@@ -8,6 +8,7 @@ import {
   openDatabase,
   ownerNeedsPin,
   withSession,
+  type BackupPort,
   type ServiceContext,
   type Session,
 } from '@app/db';
@@ -18,7 +19,7 @@ import { OwnerPinScreen } from '../features/auth/OwnerPinScreen';
 import { RecoveryCodeScreen } from '../features/auth/RecoveryCodeScreen';
 import { SetupScreen } from '../features/setup/SetupScreen';
 import { errorMessage } from '../lib/errors';
-import { createExecutor, currentPlatform, type Platform } from '../platform';
+import { createBackupPort, createExecutor, currentPlatform, type Platform } from '../platform';
 import { S } from '../strings';
 import { Notice } from '../ui';
 import { ServicesProvider, type Services } from './services';
@@ -45,6 +46,7 @@ type BootState =
 interface Opened {
   ctx: ServiceContext;
   platform: Platform;
+  backupPort: BackupPort | null;
 }
 
 // Opened once per page load, even if React mounts this component twice in development.
@@ -53,7 +55,11 @@ let opened: Promise<Opened> | null = null;
 async function open(): Promise<Opened> {
   const platform = currentPlatform();
   const db = await openDatabase(await createExecutor());
-  return { ctx: createServiceContext(db, { buildTime: new Date(__BUILD_TIME__) }), platform };
+  return {
+    ctx: createServiceContext(db, { buildTime: new Date(__BUILD_TIME__) }),
+    platform,
+    backupPort: await createBackupPort(platform),
+  };
 }
 
 /** Which screen a till starts on: setup, the owner's first PIN, or login. */
@@ -96,7 +102,7 @@ export function Boot() {
         };
         setState({
           status: 'ready',
-          services: { ctx: app, store, platform: base.platform, lock },
+          services: { ctx: app, store, platform: base.platform, lock, backupPort: base.backupPort },
         });
       } catch (error) {
         setState({ status: 'failed', message: errorMessage(error) });

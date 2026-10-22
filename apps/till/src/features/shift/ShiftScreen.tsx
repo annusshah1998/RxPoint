@@ -8,6 +8,7 @@ import {
   openShift,
   recordCashMovement,
   recordNoSale,
+  runBackup,
   type OpenShift,
   type ShiftTotals,
 } from '@app/db';
@@ -41,7 +42,7 @@ import { ShiftReport } from './ShiftReport';
 type Dialog = 'pay_in' | 'pay_out' | 'no_sale' | 'close' | null;
 
 export function ShiftScreen() {
-  const { ctx } = useServices();
+  const { ctx, backupPort } = useServices();
   const shift = useQuery({ queryKey: ['shift'], queryFn: () => getOpenShift(ctx) });
   const [dialog, setDialog] = useState<Dialog>(null);
   const [closed, setClosed] = useState<ShiftTotals | null>(null);
@@ -97,6 +98,7 @@ export function ShiftScreen() {
           onClosed={(totals) => {
             setDialog(null);
             setClosed(totals);
+            if (backupPort) void runBackup(ctx, backupPort, 'shift');
           }}
         />
       )}

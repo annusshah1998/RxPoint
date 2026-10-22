@@ -1060,3 +1060,8 @@ kbd {
     grid-template-columns: 1fr;
   }
 }
+
+.form-section {
+  margin: 16px 0 8px;
+  font-size: 15px;
+}

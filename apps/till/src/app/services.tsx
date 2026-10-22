@@ -1,4 +1,4 @@
-import type { AppContext, StoreInfo } from '@app/db';
+import type { AppContext, BackupPort, StoreInfo } from '@app/db';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, type ReactNode } from 'react';
 import type { Platform } from '../platform';
@@ -9,6 +9,8 @@ export interface Services {
   platform: Platform;
   /** Logs out and returns to the login screen (Ctrl+L, idle, or the Lock button). */
   lock: () => Promise<void>;
+  /** Null in the browser preview: backups run in the desktop app. */
+  backupPort: BackupPort | null;
 }
 
 const ServicesContext = createContext<Services | null>(null);

@@ -6,6 +6,7 @@ export { openDatabase } from './open';
 export type * from './schema';
 export { META } from './meta';
 export * from './services/auth';
+export * from './services/backup';
 export * from './services/catalog';
 export * from './services/checkout';
 export * from './services/clock';

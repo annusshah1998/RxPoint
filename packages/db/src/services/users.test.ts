@@ -8,6 +8,7 @@ import {
   updateDeviceSettings,
   updateStoreSettings,
 } from './settings';
+import { getStoreDetails, updateStoreDetails } from './setup';
 import { createUser, listUsers, resetUserPin, unlockUser, updateUser } from './users';
 
 describe('users', () => {
@@ -153,6 +154,30 @@ describe('settings', () => {
       mode: 'network',
       host: '192.168.1.50',
       port: 9100,
+    });
+  });
+});
+
+describe('store details', () => {
+  it('are changed by the owner only, and audited', async () => {
+    const t = await createTestApp();
+    const details = await updateStoreDetails(t.app, {
+      name: 'Shifa Pharmacy',
+      address: '12 Main Bazar, Lahore',
+      phone: '0300-1234567',
+      drugLicenseNo: '01-352-0001-23456P',
+    });
+    expect(details).toEqual({
+      name: 'Shifa Pharmacy',
+      address: '12 Main Bazar, Lahore',
+      phone: '0300-1234567',
+      ntn: null,
+      drugLicenseNo: '01-352-0001-23456P',
+    });
+    expect(await getStoreDetails(t.app)).toEqual(details);
+    const pharmacist = await asRole(t, 'pharmacist');
+    await expect(updateStoreDetails(pharmacist.app, { name: 'X' })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
     });
   });
 });

@@ -17,7 +17,8 @@ import {
 } from '../context';
 import { META, getMeta } from '../meta';
 import { optionalText, parseInput, requiredText } from '../validation';
-import { audit, insertRow } from '../writes';
+import { audit, insertRow, updateRow } from '../writes';
+import { authorizeTx } from './guards';
 import { checkNewPin, pinText } from './pin-input';
 
 export const setupInputSchema = z
@@ -205,4 +206,70 @@ export async function findTaxClassByName(
 ): Promise<TaxClass | null> {
   const key = nameKey(name);
   return (await listTaxClasses(ctx)).find((t) => nameKey(t.name) === key) ?? null;
+}
+
+const storeDetailsSchema = z.object({
+  name: requiredText(120, 'Enter the pharmacy name'),
+  address: optionalText(200),
+  phone: optionalText(40),
+  ntn: optionalText(30),
+  drugLicenseNo: optionalText(60),
+});
+
+export type StoreDetailsInput = z.input<typeof storeDetailsSchema>;
+
+export interface StoreDetails {
+  name: string;
+  address: string | null;
+  phone: string | null;
+  ntn: string | null;
+  drugLicenseNo: string | null;
+}
+
+export async function getStoreDetails(ctx: AppContext): Promise<StoreDetails> {
+  const branch = await ctx.db
+    .selectFrom('branch')
+    .select(['name', 'address', 'phone', 'ntn', 'drug_license_no'])
+    .where('id', '=', ctx.session.branchId)
+    .executeTakeFirstOrThrow();
+  return {
+    name: branch.name,
+    address: branch.address,
+    phone: branch.phone,
+    ntn: branch.ntn,
+    drugLicenseNo: branch.drug_license_no,
+  };
+}
+
+/** The pharmacy's name, address and licence numbers, as printed on receipts (owner only). */
+export async function updateStoreDetails(
+  ctx: AppContext,
+  input: StoreDetailsInput,
+): Promise<StoreDetails> {
+  const data = parseInput(storeDetailsSchema, input);
+  await ctx.db.transaction().execute(async (trx) => {
+    await authorizeTx(trx, ctx, 'settings.edit');
+    const before = await trx
+      .selectFrom('branch')
+      .select(['name', 'address', 'phone', 'ntn', 'drug_license_no'])
+      .where('id', '=', ctx.session.branchId)
+      .executeTakeFirstOrThrow();
+    const changed = await updateRow(trx, timestamp(ctx), 'branch', ctx.session.branchId, {
+      name: data.name,
+      address: data.address,
+      phone: data.phone,
+      ntn: data.ntn,
+      drug_license_no: data.drugLicenseNo,
+    });
+    if (changed) {
+      await audit(trx, ctx, {
+        action: 'settings.store',
+        entityType: 'branch',
+        entityId: ctx.session.branchId,
+        before,
+        after: data,
+      });
+    }
+  });
+  return getStoreDetails(ctx);
 }
