@@ -474,9 +474,15 @@ export function grantCovers(
 - **When a line over its cap is covered:** a matching line grant, or a matching bill grant. A bill grant is invalidated by any change to any line, so it is asked for last, just before Pay.
 - **Grants that no longer match** are ignored and can't cover anything else. They go away with the draft.
 
-### 3.14 `apps/till/src/features/sale/scan-detector.ts` (to do)
+### 3.14 `apps/till/src/features/sale/scan-detector.ts`
 
-`createScanDetector({minLength: 6, maxGapMs: 35}).key({key, timeStamp})` returns `{scan}` when 6 or more keys arrive at most 35 ms apart and end in Enter. The screen also treats any `looksLikeBarcode` value submitted from the Qty or discount field as a scan, so typing by hand is testable.
+`createScanDetector({minLength: 6, maxGapMs: 35}).key({key, timeStamp})` returns `{scan, runStart}`. `scan` is the code when 6 or more keys arrive at most 35 ms apart and end in Enter (the Enter within 35 ms too). Shift doesn't break a run; any other non-character key, a shortcut or a held-down (repeating) key does. `runStart` marks the first key of a run, so the field's value before it can be put back. The screen also treats any `looksLikeBarcode` value submitted from the Qty or discount field as a scan, so typing by hand is testable.
+
+- `use-scan-guard.ts`: `useScanGuard(onScan, enabled)` watches every keydown (capture phase). When a burst ends and `onScan(code, {target, before})` returns true, the Enter is stopped and the field gets back its value from before the burst.
+- **Sale screen, no dialog:** a scan with the cursor on a button or nowhere adds the item. The scan box handles its own scans (so `3*` before a scan still counts).
+- **Qty dialog** (Enter on an empty scan box, or a click on the Qty cell) and **discount dialog:** a burst, or a 6–14-digit value submitted, closes the dialog without changing the line and adds the item.
+- **Pay:** a burst is ignored with "Scan ignored — finish payment first (Esc)". Cash far above the bill (`isSuspiciousTender`) needs a second Enter: "Received Rs … for a Rs … bill? Enter to confirm".
+- **Tests:** `scan-detector.test.ts` uses fake timestamps. `e2e/warnings.spec.ts` sends key events through the Chrome DevTools protocol with explicit 5 ms timestamps: `page.keyboard.type` waits for the page between keys, so a busy page stretches the gaps, while a real scanner's keys are timed as they arrive.
 
 ---
 

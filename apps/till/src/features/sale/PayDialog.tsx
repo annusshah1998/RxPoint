@@ -39,6 +39,7 @@ import { ApprovalFields, type ApprovalValue } from '../auth/ApprovalFields';
 import { ReceiptPreview } from '../receipt/ReceiptPreview';
 import { saleReceipt } from '../receipt/sale-receipt';
 import type { SaleState } from './use-sale';
+import { useScanGuard } from './use-scan-guard';
 
 type Stage =
   | { kind: 'checking' }
@@ -73,8 +74,18 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
   const [approval, setApproval] = useState<ApprovalValue>(noApproval);
   const [cash, setCash] = useState('');
   const [others, setOthers] = useState<OtherTender[]>([]);
+  // The cash text the large-tender question was asked for; Enter again with it confirms.
+  const [askedLarge, setAskedLarge] = useState<string | null>(null);
+  const [scanIgnored, setScanIgnored] = useState(false);
   const cashRef = useRef<HTMLInputElement>(null);
   const cart = sale.cart!;
+
+  // A scan while paying goes nowhere: the field it typed into is put back and its Enter
+  // neither completes the sale nor presses a button. A barcode never becomes a tender.
+  useScanGuard(() => {
+    setScanIgnored(true);
+    return true;
+  }, stage.kind !== 'done');
 
   /** Saves the cart, prices it afresh and moves to the step it needs next. */
   const check = useCallback(async () => {
@@ -137,6 +148,12 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
   async function complete(e?: FormEvent) {
     e?.preventDefault();
     if (busy || !plan?.totals) return;
+    setScanIgnored(false);
+    // Far more cash than the bill (a typo, or a barcode typed by hand) needs a second Enter.
+    if (suspicious && askedLarge !== cash) {
+      setAskedLarge(cash);
+      return;
+    }
     if (others.some((o) => o.method === 'wallet' && !o.received)) {
       setError(new AppError('VALIDATION', S.pay.walletReceived));
       return;
@@ -240,6 +257,7 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
 
   return (
     <Modal title={title} onClose={stage.kind === 'done' ? () => void newSale() : onClose}>
+      {scanIgnored && stage.kind !== 'done' && <Notice tone="warn">{S.pay.scanIgnored}</Notice>}
       {stage.kind === 'checking' && <Loading />}
 
       {stage.kind === 'blocked' && (
@@ -414,7 +432,11 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
                 ))}
               </div>
               {suspicious && typedCash !== null && (
-                <Notice tone="warn">{S.pay.suspicious(formatMoney(typedCash))}</Notice>
+                <Notice tone="warn">
+                  {askedLarge === cash
+                    ? S.pay.confirmLarge(formatMoney(typedCash), formatMoney(total))
+                    : S.pay.suspicious(formatMoney(typedCash))}
+                </Notice>
               )}
               {others.map((o, i) => (
                 <div key={o.id} className="tender-row">
