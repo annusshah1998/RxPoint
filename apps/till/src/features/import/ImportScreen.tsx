@@ -20,6 +20,8 @@ import { errorMessage } from '../../lib/errors';
 import { S } from '../../strings';
 import { Badge, Button, Card, Checkbox, Notice, PageHeader, Select } from '../../ui';
 
+const SAMPLE_FILE = 'sample-stock.csv';
+
 type Step =
   | { name: 'choose' }
   | { name: 'map'; fileName: string; csv: ParsedCsv; mapping: ImportMapping }
@@ -43,6 +45,18 @@ export function ImportScreen() {
         return;
       }
       setStep({ name: 'map', fileName: file.name, csv, mapping: guessMapping(csv.headers) });
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  /** Development only: the sample stock list in samples/, straight to the review step. */
+  async function loadSample() {
+    setError(null);
+    try {
+      const { default: text } = await import('../../../../../samples/sample-stock.csv?raw');
+      const csv = parseCsv(text);
+      await check(SAMPLE_FILE, csv, guessMapping(csv.headers));
     } catch (err) {
       setError(err);
     }
@@ -84,7 +98,9 @@ export function ImportScreen() {
       <PageHeader title={S.import.title} subtitle={S.import.intro} />
       {error != null && <Notice tone="bad">{errorMessage(error)}</Notice>}
 
-      {step.name === 'choose' && <ChooseFile onFile={chooseFile} />}
+      {step.name === 'choose' && (
+        <ChooseFile onFile={chooseFile} onSample={import.meta.env.DEV ? loadSample : null} />
+      )}
 
       {step.name === 'map' && (
         <MapColumns
@@ -144,7 +160,14 @@ export function ImportScreen() {
   );
 }
 
-function ChooseFile({ onFile }: { onFile: (file: File) => void }) {
+function ChooseFile({
+  onFile,
+  onSample,
+}: {
+  onFile: (file: File) => void;
+  /** Loads the sample stock list (development builds only). */
+  onSample: (() => void) | null;
+}) {
   const templateUrl = useMemo(
     () => URL.createObjectURL(new Blob([IMPORT_TEMPLATE_CSV], { type: 'text/csv' })),
     [],
@@ -171,7 +194,9 @@ function ChooseFile({ onFile }: { onFile: (file: File) => void }) {
         >
           {S.import.template}
         </a>
+        {onSample && <Button onClick={onSample}>{S.import.loadSample}</Button>}
       </div>
+      {onSample && <p className="muted">{S.import.sampleHint}</p>}
     </Card>
   );
 }

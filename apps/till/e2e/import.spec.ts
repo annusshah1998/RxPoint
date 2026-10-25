@@ -41,3 +41,25 @@ test('import a distributor-style price list with stock', async ({ page }) => {
   await expect(row).toContainText('Rs 520.00 / Box');
   expect(problems).toEqual([]);
 });
+
+test('load the sample products (development builds)', async ({ page }) => {
+  const problems = await setUpTill(page);
+  await page.getByRole('link', { name: 'Import' }).click();
+  await page.getByRole('button', { name: 'Load sample products' }).click();
+
+  await expect(
+    page.getByText(
+      '19 new products · 0 already in catalog · 19 stock lines · 0 rows with problems',
+    ),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Import 20 rows' }).click();
+  await expect(
+    page.getByText('19 products created, 19 stock lines added, 0 rows failed.'),
+  ).toBeVisible();
+
+  // Two Panadol batches: 100 + 200 tablets, in boxes of 20 strips of 10.
+  await page.getByRole('button', { name: 'View products' }).click();
+  await page.getByLabel('Search products').fill('panadol');
+  await expect(page.getByRole('row', { name: /Panadol/ })).toContainText('1 Box, 10 Strips');
+  expect(problems).toEqual([]);
+});

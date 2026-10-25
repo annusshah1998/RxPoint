@@ -680,6 +680,9 @@ export const S = {
       'Bring in your product list from a spreadsheet saved as CSV. Rows can also carry opening stock (batch, expiry, quantity).',
     chooseFile: 'Choose CSV file',
     template: 'Download template',
+    loadSample: 'Load sample products',
+    sampleHint:
+      'Development builds only: 19 sample products with stock, from samples/sample-stock.csv. Loading it twice adds the stock again.',
     step1: '1. Choose a file',
     step2: '2. Match columns',
     step3: '3. Check and import',

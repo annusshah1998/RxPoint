@@ -22,13 +22,32 @@ pnpm install
 pnpm dev            # browser preview at http://localhost:1420 (data stays in that browser)
 ```
 
+To try it with stock on the shelf: set up the till, then go to **Import** and press **Load
+sample products** (development builds only), or choose
+[`samples/sample-stock.csv`](samples/sample-stock.csv) as the file. That's 19 products with
+batches; brands are real, prices made up. Each item's barcode, such as `8960000000011` for a box of Panadol, can be
+typed into the Sale screen and Enter acts as a scan. The list includes two Panadol batches
+(FEFO), Calpol expiring this month, an expired Disprin batch, Ponstan with no stock,
+prescription items, and Xanax and Lexotanil as Schedule B controlled drugs. **Clear preview
+data** (top right) starts again from scratch.
+
 End-to-end tests need a Chromium for Playwright: run
 `pnpm --filter @app/till exec playwright install chromium` once, or point `CHROMIUM_PATH`
 at an installed Chromium.
 
 To run the desktop app you also need Rust (https://rustup.rs) and, on Windows, the
 Microsoft C++ Build Tools and WebView2 (already on Windows 10/11). See
-https://v2.tauri.app/start/prerequisites/.
+https://v2.tauri.app/start/prerequisites/. With Visual Studio 2022 already installed, add
+the C++ part from an administrator PowerShell (several GB):
+
+```powershell
+& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe" modify `
+  --installPath "$env:ProgramFiles\Microsoft Visual Studio\2022\Community" `
+  --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --passive
+```
+
+Run `pnpm tauri dev` from PowerShell or cmd, not Git Bash: Git Bash has its own `link`
+command, which hides the Microsoft linker.
 
 ```sh
 pnpm tauri dev      # desktop app; the database file lives in the app data folder

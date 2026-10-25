@@ -1,0 +1,21 @@
+name,strength,form,generic,manufacturer,barcode,pack_size,sale_price,price_unit,cost_price,mrp,rx_required,controlled,rack,reorder_level,batch_no,expiry,stock_qty,stock_unit
+Panadol,500mg,Tablet,Paracetamol,GSK,8960000000011,20x10,520.00,Box,442.00,520.00,no,,A1,40,PN2601,06/2027,100,Tablet
+Panadol,500mg,Tablet,Paracetamol,GSK,8960000000011,20x10,520.00,Box,442.00,520.00,no,,A1,40,PN2602,12/2027,200,Tablet
+Augmentin,625mg,Tablet,Amoxicillin + Clavulanic Acid,GSK,8960000000028,3x6,436.20,Strip,370.77,436.20,yes,,B2,12,AU2611,03/2027,36,Tablet
+Brufen,400mg,Tablet,Ibuprofen,Abbott,8960000000035,10x10,450.00,Box,382.50,450.00,no,,A2,20,BF2603,09/2027,100,Tablet
+Brufen,100mg/5ml,Syrup,Ibuprofen,Abbott,8960000000042,,120.00,Bottle,102.00,120.00,no,,C1,5,BS2604,04/2027,8,Bottle
+Calpol,120mg/5ml,Syrup,Paracetamol,GSK,8960000000059,,185.00,Bottle,157.25,185.00,no,,C1,6,CP2610,10/2026,10,Bottle
+Risek,20mg,Capsule,Omeprazole,Getz Pharma,8960000000066,2x7,410.00,Box,348.50,410.00,no,,A3,10,RS2605,05/2027,56,Capsule
+Flagyl,400mg,Tablet,Metronidazole,Sanofi,8960000000073,10x10,600.00,Box,510.00,600.00,yes,,B1,20,FG2607,08/2027,200,Tablet
+Disprin,300mg,Tablet,Aspirin,Reckitt,8960000000080,10x10,250.00,Box,212.50,250.00,no,,A1,30,DS2608,09/2026,100,Tablet
+Ponstan,250mg,Capsule,Mefenamic Acid,Pfizer,8960000000097,10x10,500.00,Box,425.00,500.00,no,,A2,10,,,0,
+Ventolin,100mcg,Inhaler,Salbutamol,GSK,8960000000103,,650.00,Inhaler,552.50,650.00,yes,,D2,4,VT2612,02/2028,6,Inhaler
+Polyfax,,Ointment,Polymyxin B + Bacitracin,GSK,8960000000110,,280.00,Tube,238.00,280.00,no,,D1,5,PF2613,07/2027,12,Tube
+Xanax,0.5mg,Tablet,Alprazolam,Pfizer,8960000000127,3x10,330.00,Box,280.50,330.00,yes,B,X1,5,XN2614,11/2027,60,Tablet
+Lexotanil,3mg,Tablet,Bromazepam,Roche,8960000000134,3x10,420.00,Box,357.00,420.00,yes,B,X1,5,LX2615,01/2028,30,Tablet
+Rocephin,1g,Injection,Ceftriaxone,Roche,8960000000141,,780.00,Injection,663.00,780.00,yes,,F1,5,RC2616,10/2027,10,Injection
+Peditral,,Sachet,Oral Rehydration Salts,Searle,8960000000158,20,30.00,Sachet,25.50,30.00,no,,E1,40,PD2617,06/2028,100,Sachet
+Glucophage,500mg,Tablet,Metformin,Merck,8960000000165,5x10,260.00,Box,221.00,260.00,yes,,B3,20,GL2618,03/2028,150,Tablet
+Loprin,75mg,Tablet,Aspirin,Highnoon,8960000000172,3x10,95.00,Box,80.75,95.00,no,,A1,20,LP2619,12/2027,90,Tablet
+Surbex-Z,,Tablet,Multivitamin + Zinc,Abbott,8960000000189,3x10,690.00,Box,586.50,690.00,no,,E2,10,SZ2620,05/2028,60,Tablet
+Digital Thermometer,,Device,,Omron,8960000000196,,899.99,Piece,600.00,,no,,D1,2,TH2601,,5,Piece
