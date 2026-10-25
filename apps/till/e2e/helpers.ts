@@ -31,8 +31,11 @@ export async function logIn(page: Page, name: string, pin: string) {
   await page.getByLabel(`PIN for ${name}`).press('Enter');
 }
 
-/** Creates Augmentin 625mg: Tablet, Strip of 6, Box of 3 strips; priced per strip. */
-export async function createAugmentin(page: Page) {
+/**
+ * Creates Augmentin 625mg: Tablet, Strip of 6, Box of 3 strips; priced per strip.
+ * `rx` marks it prescription-only.
+ */
+export async function createAugmentin(page: Page, { rx = false }: { rx?: boolean } = {}) {
   await page.getByRole('button', { name: 'New product' }).click();
   await page.getByLabel('Brand name').fill('Augmentin');
   await page.getByLabel('Strength', { exact: true }).first().fill('625mg');
@@ -52,6 +55,7 @@ export async function createAugmentin(page: Page) {
   await page.getByLabel('per', { exact: true }).selectOption({ label: 'Strip' });
   await page.getByLabel(/Usual cost price/).fill('370.77');
   await page.getByLabel('Controlled drug').selectOption({ label: 'Not controlled' });
+  if (rx) await page.getByLabel('Prescription required').check();
   await page.getByLabel('Rack / shelf').fill('B2');
 
   await page.getByRole('button', { name: 'Save' }).click();

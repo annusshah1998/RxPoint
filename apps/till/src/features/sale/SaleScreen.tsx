@@ -87,7 +87,15 @@ function Till() {
   const [message, setMessage] = useState<string | null>(null);
   const scanRef = useRef<HTMLInputElement>(null);
 
-  const focusScan = useCallback(() => window.setTimeout(() => scanRef.current?.focus(), 0), []);
+  // Back to the scan box once the screen has settled, unless a dialog opened meanwhile
+  // (F8 pressed straight after closing Pay): that dialog keeps the cursor.
+  const focusScan = useCallback(
+    () =>
+      window.setTimeout(() => {
+        if (!document.querySelector('[role="dialog"]')) scanRef.current?.focus();
+      }, 0),
+    [],
+  );
 
   const addFromText = useCallback(
     async (text: string, hit: ProductHit | null): Promise<boolean> => {

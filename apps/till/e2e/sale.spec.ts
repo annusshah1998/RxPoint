@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createAugmentin, setUpTill } from './helpers';
 
-async function stockAndShift(page: Page) {
-  await createAugmentin(page);
+async function stockAndShift(page: Page, options: { rx?: boolean } = {}) {
+  await createAugmentin(page, options);
   await page.getByLabel('Batch no.').fill('AU1123');
   await page.getByLabel('Expiry').fill('03/2027');
   await page.getByLabel('Quantity').fill('2b');
@@ -37,12 +37,13 @@ test('scan, pay cash and see the receipt; then void it', async ({ page }) => {
   await scan.press('-');
   await expect(page.getByTestId('sale-total')).toContainText('Rs 1,309.00');
 
-  // Pay: F9, Rs 2,000 cash.
+  // Pay: F9, then Rs 2,000 typed straight into Cash received and Enter.
   await page.keyboard.press('F9');
   await expect(page.getByTestId('pay-total')).toHaveText('Rs 1,309.00');
-  await page.getByLabel('Cash received').fill('2000');
+  await expect(page.getByLabel('Cash received')).toBeFocused();
+  await page.keyboard.type('2000');
   await expect(page.getByTestId('pay-balance')).toContainText('Rs 691.00');
-  await page.getByRole('button', { name: 'Complete sale' }).click();
+  await page.keyboard.press('Enter');
 
   await expect(page.getByTestId('change-due')).toHaveText('Rs 691.00');
   await expect(page.getByText('Invoice T1-000001', { exact: true })).toBeVisible();
@@ -86,15 +87,62 @@ test('a reload keeps the sale in progress; hold and resume', async ({ page }) =>
   await expect(page.getByText('The sale in progress was restored.')).toBeVisible();
   await expect(page.getByTestId('sale-total')).toContainText('Rs 1,309.00');
 
-  // Hold it, ring up something else, then bring it back.
+  // Hold it (F8, type the note, Enter), ring up something else, then bring it back.
   await page.keyboard.press('F8');
-  await page.getByLabel('Note (optional)').fill('Lady in blue');
-  await page.getByRole('dialog').getByRole('button', { name: 'Hold' }).click();
+  await expect(page.getByLabel('Note (optional)')).toBeFocused();
+  await page.keyboard.type('Lady in blue');
+  await page.keyboard.press('Enter');
   await expect(page.getByText('Scan an item or type its name to start.')).toBeVisible();
   await page.keyboard.press('Shift+F8');
   await expect(page.getByText('Lady in blue')).toBeVisible();
   await page.getByRole('button', { name: 'Resume' }).click();
   await expect(page.getByTestId('sale-total')).toContainText('Rs 1,309.00');
+
+  expect(problems).toEqual([]);
+});
+
+test('dialogs take the keyboard: line discount, batch picker, hold and Pay', async ({ page }) => {
+  const problems = await setUpTill(page);
+  await stockAndShift(page, { rx: true });
+  const scan = page.getByLabel('Scan or search');
+  await scan.fill('8961234567890');
+  await scan.press('Enter');
+  await expect(page.getByTestId('sale-total')).toContainText('Rs 1,309.00');
+
+  // F6: the cursor is in the discount box, so typing and Enter apply it.
+  await page.keyboard.press('F6');
+  await expect(page.getByLabel('Discount', { exact: true })).toBeFocused();
+  await page.keyboard.type('5');
+  await page.keyboard.press('Enter');
+  // 5% of Rs 1,308.60.
+  await expect(page.getByRole('row', { name: /Augmentin 625mg/ })).toContainText('-65.43');
+  await expect(scan).toBeFocused();
+
+  // F4: the first choice has the cursor. Picking it and pressing F8 at once opens Hold with
+  // the cursor in its note; Esc goes back to the scan box.
+  await page.keyboard.press('F4');
+  const automatic = page.getByRole('button', { name: 'Automatic (first to expire)' });
+  await expect(automatic).toBeFocused();
+  await automatic.click();
+  await page.keyboard.press('F8');
+  await expect(page.getByLabel('Note (optional)')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(scan).toBeFocused();
+
+  // F9: Cash received has the cursor, and keeps it when answering "Prescription seen?"
+  // redraws the Sale screen behind the dialog.
+  await page.keyboard.press('F9');
+  const cash = page.getByLabel('Cash received');
+  await expect(cash).toBeFocused();
+  await page.keyboard.press('Alt+Y');
+  await expect(page.getByRole('button', { name: 'Seen', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(cash).toBeFocused();
+  // Enter with nothing typed: exact cash.
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('change-due')).toHaveText('Rs 0.00');
 
   expect(problems).toEqual([]);
 });

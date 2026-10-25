@@ -350,24 +350,56 @@ export function Modal({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // The latest onClose, so Escape works without re-subscribing on every render.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     window.addEventListener('keydown', onKey);
-    // Focus the first control in the body (not the × in the header), so Enter acts on the
-    // dialog. Leave it alone when something inside already has focus (autoFocus, typing).
-    const modal = ref.current;
-    if (modal && !modal.contains(document.activeElement)) {
-      const controls = modal.querySelectorAll<HTMLElement>('input, select, textarea, button');
-      const first = Array.from(controls).find((el) => !el.closest('.modal-header'));
-      (first ?? controls[0])?.focus();
-    }
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, []);
+
+  // Put the cursor in the dialog once, so typing and Enter act on it: on a control that
+  // asked for it (autoFocus), else the first box, else the first button (never the ×).
+  // A dialog still loading holds the cursor itself until its first control appears.
+  // After that, re-renders (the Sale screen redraws while Pay is open) leave it alone.
+  const placed = useRef(false);
+  useEffect(() => {
+    const modal = ref.current;
+    if (placed.current || !modal) return;
+    const inBody = (el: Element | null) =>
+      el !== null && el !== modal && modal.contains(el) && !el.closest('.modal-header');
+    if (inBody(document.activeElement)) {
+      placed.current = true;
+      return;
+    }
+    const body = (selector: string) =>
+      Array.from(modal.querySelectorAll<HTMLElement>(selector)).find(inBody);
+    const first =
+      body(
+        'input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled)',
+      ) ?? body('button:not(:disabled)');
+    if (first) {
+      first.focus();
+      placed.current = true;
+    } else {
+      modal.focus();
+    }
+  });
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={String(title)} ref={ref}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={String(title)}
+        tabIndex={-1}
+        ref={ref}
+      >
         <header className="modal-header">
           <h2>{title}</h2>
           <button type="button" className="icon-btn" aria-label={S.common.close} onClick={onClose}>

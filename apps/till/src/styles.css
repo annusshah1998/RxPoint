@@ -785,6 +785,10 @@ progress {
   border-radius: 8px;
   box-shadow: 0 20px 40px rgb(16 24 40 / 25%);
 }
+/* A loading dialog holds the cursor itself; no ring around the whole dialog. */
+.modal:focus {
+  outline: none;
+}
 .modal-header {
   display: flex;
   align-items: center;
