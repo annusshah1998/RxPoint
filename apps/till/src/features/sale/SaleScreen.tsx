@@ -45,12 +45,15 @@ import { BatchDialog } from './BatchDialog';
 import { DiscountDialog } from './DiscountDialog';
 import { HeldDialog, HoldDialog } from './HoldDialogs';
 import { PayDialog } from './PayDialog';
+import { QtyDialog } from './QtyDialog';
 import { useSale } from './use-sale';
+import { useScanGuard } from './use-scan-guard';
 
 type Dialog =
   | { kind: 'pay' }
   | { kind: 'hold' }
   | { kind: 'held' }
+  | { kind: 'qty'; lineKey: string }
   | { kind: 'discount'; lineKey: string | null }
   | { kind: 'batch'; lineKey: string }
   | null;
@@ -90,12 +93,12 @@ function Till() {
   const focusScan = useCallback(() => window.setTimeout(() => scanRef.current?.focus(), 0), []);
 
   const addFromText = useCallback(
-    async (text: string, hit: ProductHit | null): Promise<boolean> => {
+    async (text: string, hit: ProductHit | null, scanned = false): Promise<boolean> => {
       if (!cart) return false;
-      const { qtyText, term } = parseScanInput(text);
+      const { qtyText, term } = scanned ? { qtyText: null, term: text } : parseScanInput(text);
       let unitId: string | null = null;
       let item;
-      if (!hit && looksLikeBarcode(term)) {
+      if (!hit && (scanned || looksLikeBarcode(term))) {
         const found = await findByScan(ctx, term);
         if (!found) {
           setMessage(S.sale.noBarcode(term));
@@ -141,6 +144,21 @@ function Till() {
     },
     [cart, ctx, settings.data, update],
   );
+
+  /** A scan from anywhere but the scan box: close the quantity or discount box and add it. */
+  const addScan = (code: string) => {
+    setDialog(null);
+    focusScan();
+    void addFromText(code, null, true);
+  };
+
+  // A scan with the cursor on a button or nowhere still adds the item (and doesn't press
+  // the button). The scan box takes its own scans, so "3*" typed before one still counts.
+  useScanGuard((code, { target }) => {
+    if (target === scanRef.current) return false;
+    addScan(code);
+    return true;
+  }, dialog === null);
 
   // Function keys work wherever the focus is on this screen.
   useEffect(() => {
@@ -192,13 +210,20 @@ function Till() {
             </Button>
           </Notice>
         )}
-        <ScanBox inputRef={scanRef} onAdd={addFromText} cart={cart} update={update} />
+        <ScanBox
+          inputRef={scanRef}
+          onAdd={addFromText}
+          onEditQty={(lineKey) => setDialog({ kind: 'qty', lineKey })}
+          cart={cart}
+          update={update}
+        />
         {message && <Notice tone="warn">{message}</Notice>}
         <CartTable
           cart={cart}
           plan={plan}
           update={update}
           onFocusScan={focusScan}
+          onEditQty={(lineKey) => setDialog({ kind: 'qty', lineKey })}
           onPickBatch={(lineKey) => setDialog({ kind: 'batch', lineKey })}
         />
         <p className="muted till-keys">{S.sale.keysHint}</p>
@@ -225,10 +250,14 @@ function Till() {
         <BatchDialog sale={sale} lineKey={dialog.lineKey} onClose={close} />
       )}
       {dialog?.kind === 'held' && <HeldDialog sale={sale} onClose={close} />}
+      {dialog?.kind === 'qty' && (
+        <QtyDialog sale={sale} lineKey={dialog.lineKey} onScan={addScan} onClose={close} />
+      )}
       {dialog?.kind === 'discount' && (
         <DiscountDialog
           sale={sale}
           lineKey={dialog.lineKey}
+          onScan={addScan}
           capBp={
             settings.data
               ? Math.max(
@@ -251,11 +280,13 @@ function Till() {
 function ScanBox({
   inputRef,
   onAdd,
+  onEditQty,
   cart,
   update,
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>;
   onAdd: (text: string, hit: ProductHit | null) => Promise<boolean>;
+  onEditQty: (lineKey: string) => void;
   cart: Cart;
   update: (change: (cart: Cart) => Cart) => boolean;
 }) {
@@ -293,7 +324,8 @@ function ScanBox({
     const index = cart.lines.findIndex((l) => l.key === key);
     if (e.key === 'Enter') {
       e.preventDefault();
-      void submit(null);
+      if (empty && key) onEditQty(key);
+      else void submit(null);
     } else if (e.key === 'Escape') {
       setText('');
     } else if (e.key === 'ArrowDown') {
@@ -445,12 +477,14 @@ function CartTable({
   plan,
   update,
   onFocusScan,
+  onEditQty,
   onPickBatch,
 }: {
   cart: Cart;
   plan: SalePlan | undefined;
   update: (change: (cart: Cart) => Cart) => boolean;
   onFocusScan: () => void;
+  onEditQty: (lineKey: string) => void;
   onPickBatch: (lineKey: string) => void;
 }) {
   const { ctx } = useServices();
@@ -548,7 +582,20 @@ function CartTable({
                   </div>
                   {problem && <div className="field-error">{problem}</div>}
                 </td>
-                <td>{displayQty(line)}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    aria-label={S.sale.qtyChange(line.name, displayQty(line))}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      update((c) => selectLine(c, line.key));
+                      onEditQty(line.key);
+                    }}
+                  >
+                    {displayQty(line)}
+                  </button>
+                </td>
                 <td className="num">
                   {formatMoney(priceForQty(price, unit.qty), { symbol: false })}
                   <span className="muted">/{unit.name}</span>

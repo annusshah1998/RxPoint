@@ -1,5 +1,6 @@
 import {
   formatMoney,
+  looksLikeBarcode,
   parseDiscountInput,
   priceForQty,
   setBillDiscount,
@@ -10,22 +11,28 @@ import { useState, type FormEvent } from 'react';
 import { S } from '../../strings';
 import { Button, Field, Modal, TextInput } from '../../ui';
 import type { SaleState } from './use-sale';
+import { useScanGuard } from './use-scan-guard';
 
 function specText(spec: DiscountSpec | 'default' | 'none' | null): string {
   if (!spec || spec === 'default' || spec === 'none') return '';
   return spec.kind === 'percent' ? String(spec.bp / 100) : `${spec.amount / 100}/-`;
 }
 
-/** F6 (the selected line) or Shift+F6 (the whole bill): "10" is 10%, "50/-" is Rs 50 off. */
+/**
+ * F6 (the selected line) or Shift+F6 (the whole bill): "10" is 10%, "50/-" is Rs 50 off.
+ * A barcode scanned or typed here adds that item instead and leaves the discount as it was.
+ */
 export function DiscountDialog({
   sale,
   lineKey,
   capBp,
+  onScan,
   onClose,
 }: {
   sale: SaleState;
   lineKey: string | null;
   capBp: number | null;
+  onScan: (code: string) => void;
   onClose: () => void;
 }) {
   const cart = sale.cart!;
@@ -41,8 +48,18 @@ export function DiscountDialog({
         ? parsed.amount
         : 0;
 
+  useScanGuard((code) => {
+    onScan(code);
+    return true;
+  });
+
   function submit(e: FormEvent) {
     e.preventDefault();
+    // However slowly it was typed, a barcode here is a scan, never a discount.
+    if (looksLikeBarcode(text)) {
+      onScan(text.trim());
+      return;
+    }
     if (parsed.kind === 'invalid') {
       setError(S.sale.discountBad);
       return;

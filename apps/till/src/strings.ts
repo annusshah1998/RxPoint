@@ -233,7 +233,13 @@ export const S = {
     billDiscountKey: 'Shift+F6',
     clear: 'Clear sale',
     clearConfirm: 'Clear this sale? The items will be removed.',
-    keysHint: '↑↓ select · + − quantity · ←→ pack size · F4 batch · Del remove · Ctrl+Z undo',
+    keysHint:
+      '↑↓ select · Enter quantity · + − one more/less · ←→ pack size · F4 batch · Del remove · Ctrl+Z undo',
+    qtyTitle: (name: string) => `Quantity of ${name}`,
+    qtyInput: 'Quantity',
+    qtyHint: 'Type 3, 2s or 1b 2t. A barcode adds that item instead.',
+    qtyPreview: (qty: string) => `= ${qty}`,
+    qtyChange: (name: string, qty: string) => `${qty}: change the quantity of ${name}`,
     notSaved: 'Not saved — check the till',
     restored: 'The sale in progress was restored.',
     chips: {
@@ -335,6 +341,9 @@ export const S = {
     newSale: 'New sale',
     newSaleHint: 'Enter starts the next sale',
     suspicious: (amount: string) => `${amount} looks like a typo. Check the amount.`,
+    confirmLarge: (amount: string, bill: string) =>
+      `Received ${amount} for a ${bill} bill? Enter to confirm`,
+    scanIgnored: 'Scan ignored — finish payment first (Esc)',
   },
   sales: {
     title: 'Sales',
