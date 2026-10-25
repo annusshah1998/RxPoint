@@ -13,6 +13,8 @@ export default tseslint.config(
       'apps/till/src-tauri/gen/**',
       'apps/till/test-results/**',
       'apps/till/playwright-report/**',
+      // Local Claude Code settings and session worktrees (full copies of the repo).
+      '.claude/**',
     ],
   },
   js.configs.recommended,
