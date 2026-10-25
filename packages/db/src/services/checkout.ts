@@ -80,6 +80,8 @@ export interface SellableItem {
   /** In-date stock on record, base units. */
   stockQty: number;
   batches: SellableBatch[];
+  /** The date expiry was checked against (never earlier than the last record's date). */
+  expiryToday: IsoDate;
 }
 
 function rxKind(rxRequired: boolean, schedule: string | null): RxKind {
@@ -140,6 +142,7 @@ export async function getSellable(
       .filter((b) => !b.placeholder && b.status !== 'expired' && b.qty > 0)
       .reduce((s, b) => s + b.qty, 0),
     batches,
+    expiryToday,
   };
 }
 

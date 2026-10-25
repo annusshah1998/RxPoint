@@ -16,13 +16,13 @@ import {
 } from '@app/core';
 import { sql } from 'kysely';
 import { z } from 'zod';
-import { timestamp, today, type AppContext } from '../context';
+import { timestamp, type AppContext } from '../context';
 import type { Db } from '../executor';
 import type { BatchSource } from '../schema';
 import { optionalText, parseInput, requiredText } from '../validation';
 import { audit, insertRow, type Tx } from '../writes';
 import { requireProduct } from './catalog';
-import { authorizeTx } from './guards';
+import { authorizeTx, expiryTodayTx } from './guards';
 
 const moneyOrNull = z
   .number()
@@ -102,7 +102,7 @@ export async function addOpeningStock(
   const data = parseInput(openingStockSchema, input);
   const product = await requireProduct(ctx, data.productId);
   const packQty = data.packQty ?? product.priceQty;
-  const date = today(ctx);
+  const date = await expiryTodayTx(ctx.db, ctx);
 
   const warnings: string[] = [];
   if (!data.batchNo) warnings.push('No batch number entered');
@@ -338,7 +338,7 @@ export async function getProductStock(
     .orderBy('b.expiry_date')
     .orderBy('b.created_at');
   if (!options.includeEmpty) q = q.where('s.qty', '!=', 0);
-  const date = today(ctx);
+  const date = await expiryTodayTx(ctx.db, ctx);
   const batches = (await q.execute()).map((row) => toBatchStock(row, date));
   return {
     totalQty: batches.reduce((sum, b) => sum + b.qty, 0),
@@ -366,7 +366,7 @@ export async function planFefo(
         receivedAt: b.receivedAt,
       })),
     qty,
-    { today: today(ctx) },
+    { today: await expiryTodayTx(ctx.db, ctx) },
   );
 }
 
@@ -385,7 +385,7 @@ export async function listStock(
   options: { filter?: StockFilter; search?: string; limit?: number } = {},
 ): Promise<StockListRow[]> {
   const { filter = 'in_stock', search, limit = 500 } = options;
-  const date = today(ctx);
+  const date = await expiryTodayTx(ctx.db, ctx);
   let q = ctx.db
     .selectFrom('batch_stock as s')
     .innerJoin('batch as b', 'b.id', 's.batch_id')
@@ -457,7 +457,7 @@ export interface StockSummary {
 }
 
 export async function getStockSummary(ctx: AppContext): Promise<StockSummary> {
-  const date = today(ctx);
+  const date = await expiryTodayTx(ctx.db, ctx);
   const rows = await ctx.db
     .selectFrom('batch_stock as s')
     .innerJoin('batch as b', 'b.id', 's.batch_id')

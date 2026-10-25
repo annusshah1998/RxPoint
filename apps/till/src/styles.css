@@ -137,6 +137,44 @@ code {
   color: var(--info);
   font-size: 13px;
 }
+.clock-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 24px;
+  background: var(--warn-soft);
+  border-bottom: 2px solid var(--warn);
+  font-size: 14px;
+}
+.clock-banner .btn {
+  flex-shrink: 0;
+}
+.clock-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--bg);
+}
+.clock-block-card {
+  max-width: 620px;
+  padding: 28px 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 6px solid var(--bad);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.clock-block-card h1 {
+  margin: 8px 0 16px;
+  font-size: 24px;
+}
+.clock-block-card p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
 .boot,
 .loading,
 .empty {

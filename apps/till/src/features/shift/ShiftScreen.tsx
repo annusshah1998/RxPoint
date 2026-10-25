@@ -1,4 +1,11 @@
-import { formatMoney, isAppError, localTime, toMajorString } from '@app/core';
+import {
+  formatDate,
+  formatMoney,
+  isAppError,
+  localDate,
+  localTime,
+  toMajorString,
+} from '@app/core';
 import {
   CASH_CATEGORIES,
   closeShift,
@@ -40,6 +47,14 @@ import {
 import { ShiftReport } from './ShiftReport';
 
 type Dialog = 'pay_in' | 'pay_out' | 'no_sale' | 'close' | null;
+
+/** The PC clock is days ahead of the last record: whoever opens the shift confirms the date. */
+interface DateCheck {
+  message: string;
+  date: string;
+  days: number | null;
+  lastRecord: string | null;
+}
 
 export function ShiftScreen() {
   const { ctx, backupPort } = useServices();
@@ -131,7 +146,7 @@ function OpenShiftPanel() {
   const [counting, setCounting] = useState(false);
   const [count, setCount] = useState<CountState>(emptyCount());
   const [floatError, setFloatError] = useState<string>();
-  const [confirm, setConfirm] = useState<{ message: string; date: string } | null>(null);
+  const [confirm, setConfirm] = useState<DateCheck | null>(null);
   const open = useAction(openShift, {
     onSuccess: () => setConfirm(null),
   });
@@ -151,7 +166,13 @@ function OpenShiftPanel() {
       {
         onError: (error) => {
           if (isAppError(error) && error.code === 'NEEDS_CONFIRMATION') {
-            setConfirm({ message: error.message, date: String(error.details.date) });
+            const { date, days, lastRecord } = error.details;
+            setConfirm({
+              message: error.message,
+              date: String(date),
+              days: typeof days === 'number' ? days : null,
+              lastRecord: typeof lastRecord === 'string' ? lastRecord : null,
+            });
           }
         },
       },
@@ -200,10 +221,19 @@ function OpenShiftPanel() {
       </Card>
       {confirm && (
         <Modal title={S.shift.confirmDateTitle} onClose={() => setConfirm(null)}>
-          <p>{confirm.message}</p>
+          <p>
+            {confirm.days !== null && confirm.lastRecord
+              ? S.clock.aheadText(
+                  formatDate(confirm.date),
+                  confirm.days,
+                  formatDate(localDate(new Date(confirm.lastRecord), ctx.timeZone)),
+                )
+              : confirm.message}
+          </p>
+          <p className="muted">{S.clock.aheadFix}</p>
           <div className="form-actions">
             <Button variant="primary" onClick={() => submit(undefined, confirm.date)}>
-              {S.shift.confirmDate(confirm.date)}
+              {S.shift.confirmDate(formatDate(confirm.date))}
             </Button>
             <Button onClick={() => setConfirm(null)}>{S.common.cancel}</Button>
           </div>

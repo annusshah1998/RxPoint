@@ -66,11 +66,14 @@ describe('opening a shift', () => {
   it('refuses a date that can’t be right, and only warns when behind', async () => {
     const t = await createTestApp();
     t.setNow('2009-01-01T09:00:00Z');
-    expect((await getClockStatus(t.app)).blocks).toBe(true);
+    const wrong = await getClockStatus(t.app);
+    expect(wrong.blocks).toBe(true);
+    expect(wrong.message).toMatch(/\(1 Jan 2009\) can’t be right.*Time & language/);
     await expect(openTestShift(t.app)).rejects.toMatchObject({ code: 'CLOCK_WRONG' });
 
     t.setNow('2026-10-21T09:00:00Z');
-    await openTestShift(t.app);
+    const shift = await openTestShift(t.app);
+    expect((await getShiftTotals(t.app, shift.id)).clockBehind).toBe(false);
     t.setNow('2026-10-20T08:00:00Z');
     const status = await getClockStatus(t.app);
     expect(status).toMatchObject({ blocks: false, check: { status: 'behind' } });
@@ -84,6 +87,8 @@ describe('opening a shift', () => {
       .where('action', '=', 'clock.suspect')
       .execute();
     expect(suspect).toHaveLength(1);
+    // The shift report tells the owner which shift may carry wrong times.
+    expect((await getShiftTotals(t.app, shift.id)).clockBehind).toBe(true);
   });
 
   it('lets a pharmacist reset the clock guard after a forward jump', async () => {
@@ -91,14 +96,32 @@ describe('opening a shift', () => {
     t.setNow('2026-10-24T09:00:00Z');
     await openShift(t.app, { openingFloat: 0, confirmDate: '2026-10-24' });
     t.setNow('2026-10-21T10:00:00Z');
-    expect((await getClockStatus(t.app)).check.status).toBe('behind');
+    // Until the reset, expiry is checked as if it were the 24th.
+    expect(await getClockStatus(t.app)).toMatchObject({
+      check: { status: 'behind' },
+      today: '2026-10-21',
+      expiryToday: '2026-10-24',
+    });
     const cashier = await asRole(t, 'cashier');
     const pharmacist = await asRole(t, 'pharmacist');
     await expect(resetClockGuard(cashier.app)).rejects.toMatchObject({ code: 'NEEDS_APPROVAL' });
     await resetClockGuard(cashier.app, {
       approval: { userId: pharmacist.id, pin: pharmacist.pin },
     });
-    expect((await getClockStatus(t.app)).check.status).toBe('ok');
+    expect(await getClockStatus(t.app)).toMatchObject({
+      check: { status: 'ok' },
+      expiryToday: '2026-10-21',
+    });
+    const reset = await t.db
+      .selectFrom('audit_log')
+      .select(['user_id', 'approved_by'])
+      .where('action', '=', 'clock.reset')
+      .executeTakeFirstOrThrow();
+    expect(reset).toEqual({ user_id: cashier.id, approved_by: pharmacist.id });
+    // Once the clock is right there is nothing to reset.
+    await expect(resetClockGuard(pharmacist.app)).rejects.toMatchObject({
+      code: 'INVALID_STATE',
+    });
   });
 });
 

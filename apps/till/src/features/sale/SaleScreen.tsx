@@ -192,13 +192,6 @@ function Till() {
             </Button>
           </Notice>
         )}
-        {plan?.warnings
-          .filter((w) => w.kind === 'clock_behind')
-          .map((w) => (
-            <Notice key="clock" tone="warn">
-              {w.kind === 'clock_behind' && w.message}
-            </Notice>
-          ))}
         <ScanBox inputRef={scanRef} onAdd={addFromText} cart={cart} update={update} />
         {message && <Notice tone="warn">{message}</Notice>}
         <CartTable

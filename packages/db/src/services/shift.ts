@@ -3,6 +3,7 @@ import {
   PKR_NOTES,
   can,
   countTotal,
+  formatDate,
   formatMoney,
   type CashCount,
   type Money,
@@ -134,9 +135,9 @@ export async function openShift(ctx: AppContext, input: OpenShiftInput): Promise
       if (data.confirmDate !== date) {
         throw new AppError(
           'NEEDS_CONFIRMATION',
-          `Is today really ${date}? The last record was ${clock.check.days} days ago.`,
+          `Is today really ${formatDate(date)}? The last record was ${clock.check.days} days earlier.`,
           {},
-          { confirm: 'date', date },
+          { confirm: 'date', date, days: clock.check.days, lastRecord: clock.highWater },
         );
       }
       await audit(trx, ctx, {
@@ -360,6 +361,8 @@ export interface ShiftTotals {
   /** Lines the owner should look at: sold above MRP, without recorded stock, Rx not seen. */
   flags: { aboveMrp: number; unrecorded: number; rxNotSeen: number };
   heldSales: number;
+  /** Records were written while the clock read behind the last record (`clock.suspect`). */
+  clockBehind: boolean;
   /** Null for staff counting blind, until the shift is closed. */
   expectedCash: Money | null;
 }
@@ -434,6 +437,13 @@ export async function getShiftTotals(ctx: AppContext, shiftId: string): Promise<
     .where('device_id', '=', shift.device_id)
     .where('status', '=', 'held')
     .executeTakeFirstOrThrow();
+  const clockSuspect = await db
+    .selectFrom('audit_log')
+    .select('id')
+    .where('action', '=', 'clock.suspect')
+    .where('entity_type', '=', 'shift')
+    .where('entity_id', '=', shift.id)
+    .executeTakeFirst();
 
   const methods: Record<PaymentMethod, MethodTotals> = {
     cash: { received: 0, refunded: 0, net: 0 },
@@ -503,6 +513,7 @@ export async function getShiftTotals(ctx: AppContext, shiftId: string): Promise<
       rxNotSeen: Number(f.rx_not_seen),
     },
     heldSales: Number(held.n),
+    clockBehind: clockSuspect !== undefined,
     expectedCash: showExpected
       ? (shift.expected_cash ?? (await expectedCashTx(db, shift.id)))
       : null,

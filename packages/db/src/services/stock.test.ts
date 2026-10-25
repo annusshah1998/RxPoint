@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTestApp, tabletInput } from '../test-helpers';
+import { createTestApp, openTestShift, tabletInput } from '../test-helpers';
 import { createProduct } from './catalog';
 import {
   addOpeningStock,
@@ -201,6 +201,23 @@ describe('batches and expiry', () => {
       'GONE',
       'SOON',
     ]);
+  });
+
+  it('checks expiry against the last record’s date when the clock is moved back', async () => {
+    const t = await stocked();
+    // A shift opened on 2 Jan 2027 raises the high water past SOON's expiry...
+    t.setNow('2027-01-02T05:00:00Z');
+    await openTestShift(t.app);
+    // ...so moving the clock back to October doesn't make SOON sellable again.
+    t.setNow('2026-10-21T09:00:00Z');
+    expect((await listStock(t.app, { filter: 'expired' })).map((r) => r.batchNo)).toEqual([
+      'GONE',
+      'SOON',
+    ]);
+    const stock = await getProductStock(t.app, t.product.id);
+    expect(stock.batches.find((b) => b.batchNo === 'SOON')?.status).toBe('expired');
+    expect((await getStockSummary(t.app)).expiredBatches).toBe(2);
+    expect((await planFefo(t.app, t.product.id, 10)).allocations).toHaveLength(1);
   });
 });
 

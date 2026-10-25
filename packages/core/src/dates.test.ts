@@ -3,6 +3,7 @@ import {
   addDays,
   daysBetween,
   expiryStatus,
+  formatDate,
   formatExpiry,
   isIsoDate,
   localDate,
@@ -54,6 +55,12 @@ describe('date helpers', () => {
   it('formats expiry dates like packs print them', () => {
     expect(formatExpiry('2027-03-31')).toBe('Mar 2027');
     expect(formatExpiry('2027-03-15')).toBe('15 Mar 2027');
+  });
+
+  it('formats a calendar date with the day always shown', () => {
+    expect(formatDate('2009-01-01')).toBe('1 Jan 2009');
+    expect(formatDate('2027-03-31')).toBe('31 Mar 2027');
+    expect(formatDate('not a date')).toBe('not a date');
   });
 
   it('uses the store time zone for "today"', () => {

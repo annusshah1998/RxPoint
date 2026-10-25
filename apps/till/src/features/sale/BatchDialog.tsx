@@ -57,7 +57,10 @@ export function BatchDialog({
     const found: typeof errors = {};
     if (!batchNo) found.batchNo = S.batches.needBatchNo;
     if (!expiryDate) found.expiry = S.batches.badExpiry;
-    else if (expiryDate < today(ctx)) found.expiry = S.batches.expiredPack;
+    // Expiry is checked against the last record's date when the clock reads behind it.
+    else if (expiryDate < (item.data?.expiryToday ?? today(ctx))) {
+      found.expiry = S.batches.expiredPack;
+    }
     if (typed.mrp.trim() && mrp === null) found.mrp = S.validation.badPrice;
     setErrors(found);
     if (Object.keys(found).length > 0 || !expiryDate) return;

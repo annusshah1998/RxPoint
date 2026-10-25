@@ -5,7 +5,7 @@ import {
   can,
   effectiveToday,
   expectedCash,
-  formatExpiry,
+  formatDate,
   isApprovable,
   isLocked,
   laterTimestamp,
@@ -335,13 +335,17 @@ export async function assertClockTx(trx: Tx, ctx: ServiceContext): Promise<Clock
 
 /** What to tell staff about the clock, or '' when it looks right. */
 export function clockMessage(ctx: ServiceContext, state: ClockState): string {
-  const shown = formatExpiry(localDate(ctx.now(), ctx.timeZone));
-  const last = state.highWater
-    ? formatExpiry(localDate(new Date(state.highWater), ctx.timeZone))
+  const shown = formatDate(localDate(ctx.now(), ctx.timeZone));
+  const lastAt = state.highWater ? new Date(state.highWater) : null;
+  const last = lastAt
+    ? `${formatDate(localDate(lastAt, ctx.timeZone))}, ${localTime(lastAt, ctx.timeZone)}`
     : '';
   switch (state.check.status) {
     case 'implausible':
-      return `The computer’s date (${shown}) can’t be right. Fix the date in Windows, then try again.`;
+      return (
+        `The computer’s date (${shown}) can’t be right. Ask the owner to set the date and time ` +
+        'in Windows (Settings → Time & language → Date & time).'
+      );
     case 'behind':
       return (
         `The computer’s clock is behind the last record (${last}). ` +

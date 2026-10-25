@@ -11,6 +11,7 @@ import { SaleScreen } from '../features/sale/SaleScreen';
 import { SalesScreen } from '../features/sales/SalesScreen';
 import { BackupsScreen } from '../features/backups/BackupsScreen';
 import { useBackupSchedule } from '../features/backups/use-backup-schedule';
+import { ClockBanner, ClockBlockScreen, useClockStatus } from '../features/clock/ClockGuard';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { ShiftScreen } from '../features/shift/ShiftScreen';
 import { StaffScreen } from '../features/staff/StaffScreen';
@@ -65,6 +66,7 @@ export function Shell() {
   const settings = useQuery({ queryKey: ['settings'], queryFn: () => getStoreSettings(ctx) });
   useIdleLock(settings.data?.autoLockMinutes, lock);
   useBackupSchedule();
+  const clock = useClockStatus();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -76,6 +78,11 @@ export function Shell() {
     window.addEventListener('keydown', onKey, { capture: true });
     return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [lock]);
+
+  // A date that can't be right stops everything until Windows is fixed (§4.8).
+  if (clock.data?.blocks) {
+    return <ClockBlockScreen status={clock.data} onCheck={() => void clock.refetch()} />;
+  }
 
   return (
     <div className="shell">
@@ -110,6 +117,7 @@ export function Shell() {
       </aside>
       <main className="main">
         {platform === 'browser' && <PreviewBanner />}
+        {clock.data && <ClockBanner status={clock.data} />}
         <Screen route={route} canSell={can(store.userRole, 'sale.sell')} />
       </main>
     </div>

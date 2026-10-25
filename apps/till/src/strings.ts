@@ -86,6 +86,31 @@ export const S = {
     approver: 'Approved by',
     pin: 'Their PIN',
   },
+  clock: {
+    blockTitle: 'The computer’s date is wrong',
+    blockText: (date: string) =>
+      `The computer’s date (${date}) can’t be right. Ask the owner to set the date and time ` +
+      'in Windows (Settings → Time & language → Date & time).',
+    blockWho:
+      'Changing the time needs the Windows administrator password. A standard Windows account can’t do it.',
+    blockWhy: 'Shifts, sales and returns are stopped so that no record gets a wrong date.',
+    blockLifts: 'This screen closes by itself once the date is right.',
+    checkAgain: 'Check again',
+    duration: (n: number, unit: 'minute' | 'hour' | 'day') => count(n, unit),
+    behindTitle: (by: string) => `The clock is ${by} behind the last record.`,
+    behindText: (now: string, last: string) =>
+      `This computer says ${now}, but a record was made at ${last}. You can keep selling. ` +
+      'If the time in Windows is wrong, fix it there.',
+    reset: 'The clock is right — reset',
+    resetTitle: 'Reset the clock check',
+    resetIntro: (now: string) => `Do this only if ${now} is the right date and time.`,
+    resetExpiry: (last: string, today: string) =>
+      `Until then, expiry is checked as if today were ${last}. After the reset it uses ${today}.`,
+    resetConfirm: 'Yes, the clock is right',
+    aheadText: (date: string, days: number, last: string) =>
+      `Is today really ${date}? The last record was made ${count(days, 'day')} earlier, on ${last}.`,
+    aheadFix: 'If the date is wrong, fix it in Windows before opening the shift.',
+  },
   shift: {
     title: 'Shift',
     noShift: 'No shift is open',
@@ -159,6 +184,7 @@ export const S = {
     unrecorded: 'Lines sold without recorded stock',
     rxNotSeen: 'Prescriptions not seen',
     held: 'Held sales',
+    clockBehind: 'Clock behind the last record',
     history: 'Recent shifts',
     openNew: 'Open next shift',
   },
@@ -223,7 +249,6 @@ export const S = {
       unrecorded: 'Not in recorded stock',
       discountDropped: 'Discount removed — more than the new amount',
     },
-    clockBehind: (message: string) => message,
     discountTitleLine: (name: string) => `Discount on ${name}`,
     discountTitleBill: 'Discount on the whole bill',
     discountInput: 'Discount',

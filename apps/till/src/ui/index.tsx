@@ -355,7 +355,14 @@ export function Modal({
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
-    ref.current?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
+    // Focus the first control in the body (not the × in the header), so Enter acts on the
+    // dialog. Leave it alone when something inside already has focus (autoFocus, typing).
+    const modal = ref.current;
+    if (modal && !modal.contains(document.activeElement)) {
+      const controls = modal.querySelectorAll<HTMLElement>('input, select, textarea, button');
+      const first = Array.from(controls).find((el) => !el.closest('.modal-header'));
+      (first ?? controls[0])?.focus();
+    }
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (

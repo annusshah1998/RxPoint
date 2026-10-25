@@ -62,6 +62,7 @@ export function ShiftReport({ totals }: { totals: ShiftTotals }) {
           <Row label={S.shift.unrecorded} value={String(totals.flags.unrecorded)} />
           <Row label={S.shift.rxNotSeen} value={String(totals.flags.rxNotSeen)} />
           <Row label={S.shift.held} value={String(totals.heldSales)} />
+          {totals.clockBehind && <Row label={S.shift.clockBehind} value={S.common.yes} />}
         </tbody>
       </table>
     </div>

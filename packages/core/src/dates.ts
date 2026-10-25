@@ -111,6 +111,13 @@ export function formatExpiry(date: IsoDate): string {
   return day === daysInMonth(year, month) ? label : `${day} ${label}`;
 }
 
+/** "1 Jan 2009": a calendar date with the day always shown (for clock and shift messages). */
+export function formatDate(date: IsoDate): string {
+  const match = ISO_DATE.exec(date);
+  if (!match) return date;
+  return `${Number(match[3])} ${MONTH_LABELS[Number(match[2]) - 1]} ${match[1]}`;
+}
+
 /** The clock time at `at` in the store's time zone, as 24-hour "HH:MM". */
 export function localTime(at: Date, timeZone: string = MARKET.timeZone): string {
   return new Intl.DateTimeFormat('en-GB', {
