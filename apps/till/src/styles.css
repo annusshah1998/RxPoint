@@ -288,6 +288,22 @@ textarea.input {
 .input-narrow {
   max-width: 90px;
 }
+/* Suggestions under a text box; the list itself shares the Sale screen's results style. */
+.combobox {
+  position: relative;
+}
+.combobox-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.combobox-list li {
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.combobox-list li.active {
+  background: var(--accent-soft);
+}
 .checkbox {
   display: inline-flex;
   align-items: center;
@@ -836,7 +852,8 @@ progress {
   font-size: 18px;
   padding: 10px 12px;
 }
-.scan-results {
+.scan-results,
+.combobox-list {
   position: absolute;
   z-index: 10;
   top: calc(100% + 4px);

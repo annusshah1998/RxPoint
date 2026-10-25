@@ -1,12 +1,22 @@
-import { createContext, useContext, useEffect, useId, useRef, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
+  KeyboardEvent as ReactKeyboardEvent,
   Ref,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
 import { S } from '../strings';
+import { matchOptions } from './match-options';
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -98,6 +108,133 @@ export function TextArea({
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const field = useFieldProps(props);
   return <textarea className={`input ${className}`} rows={2} {...props} {...field} />;
+}
+
+/**
+ * A text box with suggestions listed under it, for names staff usually pick from earlier
+ * entries but may also type fresh (manufacturer, salt). Typing, a click or ↓ opens the
+ * list; ↑/↓ move, Enter picks, Escape closes. The list is drawn in the page under its
+ * box (not by the browser), so it matches the rest of the till and scrolls with the form.
+ */
+export function Combobox({
+  value,
+  onChange,
+  options,
+  className = '',
+  onKeyDown,
+  onBlur,
+  onClick,
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'list'> & {
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly string[];
+}) {
+  const field = useFieldProps(props);
+  const listId = useId();
+  const listRef = useRef<HTMLUListElement>(null);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const matches = matchOptions(options, value);
+  const shown = open && matches.length > 0;
+  const optionId = (i: number) => `${listId}-${i}`;
+
+  useEffect(() => {
+    if (shown && active >= 0)
+      listRef.current?.children[active]?.scrollIntoView?.({ block: 'nearest' });
+  }, [shown, active]);
+
+  function close() {
+    setOpen(false);
+    setActive(-1);
+  }
+
+  function pick(option: string) {
+    onChange(option);
+    close();
+  }
+
+  function keyDown(e: ReactKeyboardEvent<HTMLInputElement>) {
+    onKeyDown?.(e);
+    if (e.defaultPrevented) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!shown) {
+        setOpen(true);
+        setActive(0);
+      } else setActive((i) => Math.min(i + 1, matches.length - 1));
+    } else if (e.key === 'ArrowUp' && shown) {
+      e.preventDefault();
+      setActive((i) => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter' && shown && active >= 0) {
+      // Pick the highlighted name instead of saving the form.
+      e.preventDefault();
+      pick(matches[active]!);
+    } else if (e.key === 'Escape' && shown) {
+      // Close the list only, not a dialog the box sits in.
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }
+  }
+
+  return (
+    <div className="combobox">
+      <input
+        className={`input ${className}`}
+        autoComplete="off"
+        {...props}
+        {...field}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={shown}
+        aria-controls={shown ? listId : undefined}
+        aria-activedescendant={shown && active >= 0 ? optionId(active) : undefined}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+          setActive(-1);
+        }}
+        onKeyDown={keyDown}
+        onClick={(e) => {
+          onClick?.(e);
+          setOpen(true);
+        }}
+        onBlur={(e) => {
+          close();
+          onBlur?.(e);
+        }}
+      />
+      {shown && (
+        <ul
+          className="combobox-list"
+          id={listId}
+          role="listbox"
+          aria-label={S.common.suggestions}
+          ref={listRef}
+        >
+          {matches.map((option, i) => (
+            <li
+              key={option}
+              id={optionId(i)}
+              role="option"
+              aria-selected={i === active}
+              className={i === active ? 'active' : ''}
+              onMouseEnter={() => setActive(i)}
+              onMouseDown={(e) => {
+                // Keep focus in the box so the click picks instead of blurring first.
+                e.preventDefault();
+                pick(option);
+              }}
+            >
+              {option}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function Select({ className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {

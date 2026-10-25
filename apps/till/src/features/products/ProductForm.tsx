@@ -13,7 +13,7 @@ import {
 import type { TaxClass } from '@app/db';
 import type { Dispatch, KeyboardEvent, SetStateAction } from 'react';
 import { S } from '../../strings';
-import { Button, Card, Checkbox, Field, Select, TextArea, TextInput } from '../../ui';
+import { Button, Card, Checkbox, Combobox, Field, Select, TextArea, TextInput } from '../../ui';
 import { changeForm, rowKey, type ProductFormState, type UnitRow } from './form-state';
 
 export interface ProductFormLists {
@@ -77,13 +77,12 @@ export function ProductForm({
             </Field>
           </div>
           <Field label={S.product.manufacturer} error={errors.manufacturer}>
-            <TextInput {...text('manufacturer')} list="manufacturer-list" autoComplete="off" />
+            <Combobox
+              value={state.manufacturer}
+              onChange={set('manufacturer')}
+              options={lists.manufacturers}
+            />
           </Field>
-          <datalist id="manufacturer-list">
-            {lists.manufacturers.map((m) => (
-              <option key={m} value={m} />
-            ))}
-          </datalist>
         </Card>
 
         <SaltsCard state={state} setState={setState} errors={errors} generics={lists.generics} />
@@ -391,11 +390,10 @@ function SaltsCard({
             label={`${S.product.generic} ${i + 1}`}
             error={errors[`salts.${salt.key}.generic`]}
           >
-            <TextInput
+            <Combobox
               value={salt.generic}
-              list="generic-list"
-              autoComplete="off"
-              onChange={(e) => update(salt.key, { generic: e.target.value })}
+              onChange={(generic) => update(salt.key, { generic })}
+              options={generics}
             />
           </Field>
           <Field label={S.product.genericStrength} error={errors[`salts.${salt.key}.strength`]}>
@@ -416,11 +414,6 @@ function SaltsCard({
           </button>
         </div>
       ))}
-      <datalist id="generic-list">
-        {generics.map((g) => (
-          <option key={g} value={g} />
-        ))}
-      </datalist>
       <Button
         size="small"
         onClick={() =>

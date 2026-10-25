@@ -18,6 +18,7 @@ export const S = {
     remove: 'Remove',
     close: 'Close',
     loading: 'Loading…',
+    suggestions: 'Suggestions',
     none: '—',
     yes: 'Yes',
     no: 'No',

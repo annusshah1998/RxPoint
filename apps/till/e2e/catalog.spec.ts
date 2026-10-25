@@ -65,6 +65,68 @@ test('show field errors from the product form', async ({ page }) => {
   await expect(page.getByText('Already used by Augmentin')).toBeVisible();
 });
 
+test('suggest a maker and salt under their boxes, by keyboard or mouse', async ({ page }) => {
+  const problems = await setUpTill(page);
+  await createAugmentin(page);
+  await page.getByRole('link', { name: 'Products' }).click();
+  await page.getByRole('button', { name: 'New product' }).click();
+  await page.getByLabel('Brand name').fill('Amoxil');
+
+  // Typing opens the till's own list (not the browser's), just under the box.
+  const maker = page.getByLabel('Manufacturer');
+  const suggestions = page.getByRole('listbox', { name: 'Suggestions' });
+  await maker.fill('gs');
+  await expect(suggestions.getByRole('option')).toHaveText(['GSK']);
+  await expect(suggestions).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const listSitsUnderBox = async () => {
+    const box = (await maker.boundingBox())!;
+    const list = (await suggestions.boundingBox())!;
+    expect(Math.abs(list.x - box.x)).toBeLessThan(2);
+    expect(list.y).toBeGreaterThanOrEqual(box.y + box.height);
+    expect(list.y).toBeLessThan(box.y + box.height + 12);
+    return box.y;
+  };
+  const top = await listSitsUnderBox();
+
+  // Scrolling the form carries the list along with its box.
+  await page.locator('.main').evaluate((el) => el.scrollBy(0, 120));
+  await expect.poll(async () => (await maker.boundingBox())!.y).toBeLessThan(top);
+  await listSitsUnderBox();
+
+  // ↓ highlights a name and Enter picks it, without saving the form.
+  await maker.press('ArrowDown');
+  await expect(suggestions.getByRole('option', { name: 'GSK' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await maker.press('Enter');
+  await expect(maker).toHaveValue('GSK');
+  await expect(suggestions).toBeHidden();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+
+  // Escape closes the list and keeps what was typed.
+  const salt = page.getByLabel('Generic (salt) 1');
+  await salt.fill('a');
+  await expect(suggestions.getByRole('option')).toHaveText(['Amoxicillin', 'Clavulanic Acid']);
+  await salt.press('Escape');
+  await expect(suggestions).toBeHidden();
+  await expect(salt).toHaveValue('a');
+
+  // A click picks a name too.
+  await salt.fill('clav');
+  await suggestions.getByRole('option', { name: 'Clavulanic Acid' }).click();
+  await expect(salt).toHaveValue('Clavulanic Acid');
+  await expect(suggestions).toBeHidden();
+
+  // A new name can still be typed, and the product saves.
+  await maker.fill('Brand New Pharma');
+  await expect(suggestions).toBeHidden();
+  await page.getByLabel('Sale price').fill('120');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { name: /Amoxil/ })).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
 test('edit a price and keep the change in the product', async ({ page }) => {
   await setUpTill(page);
   await createAugmentin(page);
