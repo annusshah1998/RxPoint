@@ -450,6 +450,8 @@ export const S = {
     rxRecord: 'Record whether the prescription was seen',
     rxRequire: 'Require the prescription to be seen',
     nearExpiryDays: 'Warn when a batch expires within (days)',
+    returnDays: 'Returns allowed within (days)',
+    returnDaysHint: 'Later returns need the owner’s PIN.',
     cash: 'Cash drawer',
     defaultFloat: 'Usual opening float (Rs)',
     payOutLimit: 'Cash-outs above this need a pharmacist (Rs)',

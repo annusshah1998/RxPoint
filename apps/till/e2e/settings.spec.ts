@@ -11,6 +11,7 @@ test('the owner sets the pharmacy details and checkout rules', async ({ page }) 
 
   await page.getByLabel('Cashier can give up to (%)').fill('7.5');
   await page.getByLabel('Round bills').selectOption({ label: 'To Rs 5' });
+  await page.getByLabel('Returns allowed within (days)').fill('14');
   await page.getByLabel('Footer line').fill('Fridge items are not returnable');
   await page.getByRole('button', { name: 'Save' }).nth(1).click();
   await expect(page.getByText('Saved').nth(1)).toBeVisible();
@@ -21,6 +22,7 @@ test('the owner sets the pharmacy details and checkout rules', async ({ page }) 
   await page.getByLabel('PIN for Annus').press('Enter');
   await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByLabel('Cashier can give up to (%)')).toHaveValue('7.5');
+  await expect(page.getByLabel('Returns allowed within (days)')).toHaveValue('14');
   await expect(page.getByLabel('Drug licence no.')).toHaveValue('01-352-0001-23456P');
 
   // Backups run only in the desktop app.

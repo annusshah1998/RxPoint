@@ -113,6 +113,7 @@ function CheckoutSettingsForm({ initial }: { initial: StoreSettings }) {
     capCashier: pct(initial.discountCapBp.cashier),
     rxCheck: initial.rxCheck,
     nearExpiryDays: String(initial.saleNearExpiryDays),
+    returnDays: String(initial.returnDays),
     defaultFloat: toMajorString(initial.defaultFloat),
     payOutLimit: toMajorString(initial.payOutLimit),
     varianceNoteAt: toMajorString(initial.varianceNoteAt),
@@ -138,6 +139,7 @@ function CheckoutSettingsForm({ initial }: { initial: StoreSettings }) {
       pharmacist: readPct(v.capPharmacist),
       cashier: readPct(v.capCashier),
       saleNearExpiryDays: readInt(v.nearExpiryDays),
+      returnDays: readInt(v.returnDays),
       defaultFloat: parseMoney(v.defaultFloat),
       payOutLimit: parseMoney(v.payOutLimit),
       varianceNoteAt: parseMoney(v.varianceNoteAt),
@@ -162,6 +164,7 @@ function CheckoutSettingsForm({ initial }: { initial: StoreSettings }) {
       },
       rxCheck: v.rxCheck,
       saleNearExpiryDays: nums.saleNearExpiryDays!,
+      returnDays: nums.returnDays!,
       defaultFloat: nums.defaultFloat!,
       payOutLimit: nums.payOutLimit!,
       varianceNoteAt: nums.varianceNoteAt!,
@@ -244,6 +247,13 @@ function CheckoutSettingsForm({ initial }: { initial: StoreSettings }) {
               onChange={text('nearExpiryDays')}
               inputMode="numeric"
             />
+          </Field>
+          <Field
+            label={S.settings.returnDays}
+            hint={S.settings.returnDaysHint}
+            error={errors.returnDays}
+          >
+            <TextInput value={v.returnDays} onChange={text('returnDays')} inputMode="numeric" />
           </Field>
         </div>
         <h3 className="form-section">{S.settings.cash}</h3>
