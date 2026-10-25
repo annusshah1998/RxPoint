@@ -74,5 +74,6 @@ export async function addStaff(page: Page, name: string, role: string, pin: stri
 export async function switchUser(page: Page, name: string, pin: string) {
   await page.getByRole('button', { name: 'Lock' }).click();
   await logIn(page, name, pin);
-  await expect(page.getByText(`· ${name}`)).toBeVisible();
+  // The sidebar, not the Sale screen's header, which shows the same line once a shift is open.
+  await expect(page.locator('.sidebar-footer').getByText(`· ${name}`)).toBeVisible();
 }
