@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "pnpm --filter @app/till test:e2e",
+    "docs:screenshots": "pnpm --filter @app/till screenshots:guide",
     "check:name": "node scripts/product-name.mjs --check",
     "sync:name": "node scripts/product-name.mjs --write",
     "check": "pnpm check:name && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"

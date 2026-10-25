@@ -13,6 +13,9 @@ screen, payments, hold/resume, void, returns, receipt preview and backups work; 
 printing is next. No printer or scanner is needed to try it. See
 [docs/plan.md](docs/plan.md).
 
+**Using the till:** the [user guide](docs/user-guide/README.md) covers every screen, with
+screenshots, the keyboard shortcuts and the checkout rules.
+
 ## Try it
 
 Prerequisites: Node 22.13+, pnpm 10 (`corepack enable`).
@@ -61,6 +64,7 @@ pnpm tauri build    # Windows installer in apps/till/src-tauri/target/release/bu
 | `pnpm check`                            | Everything CI checks: product name, formatting, lint, types, unit tests |
 | `pnpm test`                             | Unit tests (Vitest)                                                     |
 | `pnpm test:e2e`                         | End-to-end tests in the browser preview (Playwright)                    |
+| `pnpm docs:screenshots`                 | Retake the user guide's screenshots                                     |
 | `cargo test` (in `apps/till/src-tauri`) | Rust tests                                                              |
 | `pnpm format`                           | Format all files                                                        |
 | `pnpm sync:name`                        | Copy the product name into the Tauri config after renaming              |
