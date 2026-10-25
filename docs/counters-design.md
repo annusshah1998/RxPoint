@@ -335,7 +335,7 @@ Hours are at the same rough level as `m2-design.md` §10.
 | 7   | Several tills: search across tills, returns at any till, waiting orders at shift close                                                           | 5                                                             |
 | 8   | Order slip and the receipt line                                                                                                                  | 4                                                             |
 | 9   | Dev main PC and end-to-end tests, Rust tests, the migration test                                                                                 | 12                                                            |
-| 10  | ADR 0005 ("One store database on the main PC"), `architecture.md`, `plan.md`, user guide                                                         | 4                                                             |
+| 10  | ADR 0012 ("One store database on the main PC"; M2 uses 0005–0011), `architecture.md`, `plan.md`, user guide                                      | 4                                                             |
 |     | **Total**                                                                                                                                        | **≈ 100 h** (likely 80–130), about 9–10 weeks at 10–12 h/week |
 
 - **Setup B** needs steps 1–6, 8 and 9. **Setup C** adds step 7.
