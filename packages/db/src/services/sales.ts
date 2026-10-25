@@ -79,8 +79,12 @@ export interface SaleView {
   prescription: { patientName: string; prescriberName: string; dispensedBy: string } | null;
   voided: { at: string; by: string; reason: string; approvedBy: string | null } | null;
   returned: boolean;
+  /** Returns against this sale, oldest first. */
+  returns: { id: string; returnNo: string; at: string; refundTotal: Money; by: string }[];
   /** Can be voided now: from the open shift, not voided, nothing returned. */
   canVoid: boolean;
+  /** Something is left to take back: not voided and not fully returned. */
+  canReturn: boolean;
 }
 
 async function names(db: Db | Tx, ids: (string | null)[]): Promise<Map<string, string>> {
@@ -124,11 +128,19 @@ async function saleViewTx(db: Db | Tx, ctx: AppContext, saleId: string): Promise
     .selectAll()
     .where('sale_id', '=', saleId)
     .executeTakeFirst();
-  const returned = await db
-    .selectFrom('sale_return')
-    .select('id')
-    .where('sale_id', '=', saleId)
-    .executeTakeFirst();
+  const returns = await db
+    .selectFrom('sale_return as r')
+    .innerJoin('app_user as u', 'u.id', 'r.user_id')
+    .select(['r.id', 'r.return_no', 'r.created_at', 'r.refund_total', 'u.name'])
+    .where('r.sale_id', '=', saleId)
+    .orderBy('r.return_seq')
+    .execute();
+  const returnedQty = await db
+    .selectFrom('sale_return_line as l')
+    .innerJoin('sale_return as r', 'r.id', 'l.return_id')
+    .select((eb) => eb.fn.coalesce(eb.fn.sum<number>('l.qty'), eb.lit(0)).as('qty'))
+    .where('r.sale_id', '=', saleId)
+    .executeTakeFirstOrThrow();
   const prescription = await db
     .selectFrom('sale_prescription')
     .selectAll()
@@ -205,8 +217,16 @@ async function saleViewTx(db: Db | Tx, ctx: AppContext, saleId: string): Promise
           approvedBy: voided.approved_by ? (who.get(voided.approved_by) ?? '') : null,
         }
       : null,
-    returned: !!returned,
-    canVoid: !voided && !returned && openShift?.id === sale.shift_id,
+    returned: returns.length > 0,
+    returns: returns.map((r) => ({
+      id: r.id,
+      returnNo: r.return_no,
+      at: r.created_at,
+      refundTotal: r.refund_total,
+      by: r.name,
+    })),
+    canVoid: !voided && returns.length === 0 && openShift?.id === sale.shift_id,
+    canReturn: !voided && Number(returnedQty.qty) < lines.reduce((s, l) => s + l.qty, 0),
   };
 }
 
@@ -218,6 +238,8 @@ export interface SaleListRow {
   lineCount: number;
   cashier: string;
   voided: boolean;
+  /** Some of it was taken back. */
+  returned: boolean;
   methods: PaymentMethod[];
 }
 
@@ -246,6 +268,12 @@ export async function listSales(
       's.line_count',
       'u.name',
       'v.id as void_id',
+      (eb) =>
+        eb
+          .exists(
+            eb.selectFrom('sale_return as r').select('r.id').whereRef('r.sale_id', '=', 's.id'),
+          )
+          .as('has_return'),
     ])
     .where('s.device_id', '=', ctx.session.deviceId)
     .orderBy('s.invoice_seq', 'desc')
@@ -276,6 +304,7 @@ export async function listSales(
     lineCount: r.line_count,
     cashier: r.name,
     voided: r.void_id !== null,
+    returned: !!r.has_return,
     methods: [...new Set(methods.filter((m) => m.sale_id === r.id).map((m) => m.method))].sort(),
   }));
 }
@@ -497,8 +526,8 @@ export async function voidSale(
   });
 }
 
-/** "Give back Rs 965.00 cash; reverse the Rs 1,000.00 card payment (4417)". */
-export function describeRefund(result: VoidResult): string[] {
+/** "Give back Rs 965.00 cash; reverse the Rs 1,000.00 card payment (4417)". For voids and returns. */
+export function describeRefund(result: Pick<VoidResult, 'cashToGiveBack' | 'nonCash'>): string[] {
   const steps: string[] = [];
   if (result.cashToGiveBack > 0) steps.push(`Give back ${formatMoney(result.cashToGiveBack)} cash`);
   for (const p of result.nonCash) {

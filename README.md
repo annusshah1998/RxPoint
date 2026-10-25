@@ -9,8 +9,8 @@ The name is a placeholder and will change before launch. It lives only in
 
 **Status:** milestone 1 of 7 is done: catalog, search, opening stock, expiry views and
 CSV import. Milestone 2 (checkout) is in progress: login and roles, shifts, the Sale
-screen, payments, hold/resume, void, receipt preview and backups work; returns and real
-printing are next. No printer or scanner is needed to try it. See
+screen, payments, hold/resume, void, returns, receipt preview and backups work; real
+printing is next. No printer or scanner is needed to try it. See
 [docs/plan.md](docs/plan.md).
 
 ## Try it

@@ -2,11 +2,13 @@ import { can, formatMoney, localTime } from '@app/core';
 import {
   describeRefund,
   getDeviceSettings,
+  getReturnReceiptData,
   getSale,
   getSaleReceiptData,
   listSales,
   recordReprint,
   voidSale,
+  type ReturnResult,
   type SaleView,
   type VoidResult,
 } from '@app/db';
@@ -31,7 +33,9 @@ import {
 } from '../../ui';
 import { ApprovalFields, type ApprovalValue } from '../auth/ApprovalFields';
 import { ReceiptPreview } from '../receipt/ReceiptPreview';
+import { returnReceipt } from '../receipt/return-receipt';
 import { saleReceipt } from '../receipt/sale-receipt';
+import { ReturnForm } from './ReturnForm';
 
 export function SalesScreen() {
   const { ctx } = useServices();
@@ -82,6 +86,7 @@ export function SalesScreen() {
                       {s.invoiceNo}
                     </button>{' '}
                     {s.voided && <Badge tone="bad">{S.sales.voided}</Badge>}
+                    {s.returned && <Badge tone="warn">{S.sales.returned}</Badge>}
                   </td>
                   <td>{localTime(new Date(s.createdAt), ctx.timeZone)}</td>
                   <td>{s.cashier}</td>
@@ -106,7 +111,28 @@ function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }
   const [receipt, setReceipt] = useState<ReceiptDocument | null>(null);
   const [voiding, setVoiding] = useState(false);
   const [voided, setVoided] = useState<VoidResult | null>(null);
+  const [returning, setReturning] = useState(false);
+  const [returned, setReturned] = useState<{
+    result: ReturnResult;
+    receipt: ReceiptDocument | null;
+  } | null>(null);
   const [error, setError] = useState<unknown>(null);
+
+  async function finishReturn(result: ReturnResult) {
+    let receiptDoc: ReceiptDocument | null = null;
+    try {
+      const [data, device] = await Promise.all([
+        getReturnReceiptData(ctx, result.returnId),
+        getDeviceSettings(ctx),
+      ]);
+      receiptDoc = returnReceipt(data, { width: device.printer.columns, timeZone: ctx.timeZone });
+    } catch (err) {
+      setError(err);
+    }
+    setReturned({ result, receipt: receiptDoc });
+    setReturning(false);
+    await queryClient.invalidateQueries();
+  }
 
   async function showReceipt(view: SaleView) {
     try {
@@ -126,6 +152,25 @@ function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }
     <Modal title={view ? S.sales.detailTitle(view.invoiceNo) : S.sales.title} onClose={onClose}>
       {!view ? (
         <Loading />
+      ) : returned ? (
+        <>
+          <Notice tone="good">{S.returns.done(returned.result.returnNo)}</Notice>
+          <ul>
+            {describeRefund(returned.result).map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ul>
+          {returned.receipt && <ReceiptPreview doc={returned.receipt} />}
+          <Button variant="primary" onClick={onClose}>
+            {S.common.close}
+          </Button>
+        </>
+      ) : returning ? (
+        <ReturnForm
+          saleId={view.id}
+          onDone={(result) => void finishReturn(result)}
+          onCancel={() => setReturning(false)}
+        />
       ) : voided ? (
         <>
           <Notice tone="good">{S.sales.voidDone}</Notice>
@@ -171,6 +216,18 @@ function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }
               </tr>
             </tbody>
           </table>
+          {view.returns.length > 0 && (
+            <>
+              <h3>{S.sales.returnsSoFar}</h3>
+              <ul>
+                {view.returns.map((r) => (
+                  <li key={r.id}>
+                    {S.sales.returnRow(r.returnNo, formatMoney(r.refundTotal), r.by)}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           {receipt && <ReceiptPreview doc={receipt} />}
           <div className="form-actions">
             <Button onClick={() => void showReceipt(view)}>{S.sales.reprint}</Button>
@@ -178,6 +235,9 @@ function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }
               <Button variant="danger" onClick={() => setVoiding(true)}>
                 {S.sales.void}
               </Button>
+            )}
+            {view.canReturn && can(store.userRole, 'sale.sell') && (
+              <Button onClick={() => setReturning(true)}>{S.sales.returnItems}</Button>
             )}
             <Button variant="ghost" onClick={onClose}>
               {S.common.close}

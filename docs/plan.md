@@ -79,10 +79,14 @@ Built and tested:
   off by default, so the till works without a printer or scanner
 - Backups in the desktop app: automatic and by hand, checked after each copy, old copies
   thinned; Backups and Settings screens
-- Record checks (`checkRecords`) over a full simulated day of sales
+- Record checks (`checkRecords`) over a full simulated day of sales, voids and returns
+- Returns from the Sales screen: part or all of a sale, back on the shelf unless the batch
+  has expired, refunds rounded so all returns add up to the sale total, paid back the way
+  the sale was paid (card and wallet capped, cash limited to the drawer); a pharmacist's
+  PIN for cashiers, the owner's after the return window (7 days), a return receipt
 
-Still to do for M2: returns, printing to a real printer and the cash drawer, the clock
-warning banner, the scanner-speed detector, a full-day browser test, and the ADRs.
+Still to do for M2: printing to a real printer and the cash drawer, the clock warning
+banner, the scanner-speed detector, a full-day browser test, and the ADRs.
 
 ## Open items carried into M2
 

@@ -12,7 +12,8 @@ import {
 import { createProduct } from './catalog';
 import { planSale } from './checkout';
 import { checkRecords } from './integrity';
-import { voidSale } from './sales';
+import { createReturn, planReturn } from './returns';
+import { getSale, voidSale } from './sales';
 import { closeShift, getShiftTotals, recordCashMovement } from './shift';
 import { addOpeningStock, rebuildStockCache } from './stock';
 
@@ -95,7 +96,31 @@ describe('a full day of sales', () => {
       note: 'Cleaning',
     });
 
+    // Three returns (a pharmacist approves): from a card sale, a cash sale and a wallet sale.
+    let refunded = 0;
+    for (const r of [saleIds[0]!, saleIds[1]!, saleIds[7]!]) {
+      const view = (await getSale(t.app, r.id))!;
+      const lines = [{ saleLineId: view.lines[0]!.id, qty: 1, restock: true }];
+      const plan = await planReturn(cashier.app, { saleId: r.id, lines });
+      const done = await createReturn(cashier.app, {
+        saleId: r.id,
+        lines,
+        reason: 'side_effect',
+        refunds: plan.suggestedRefunds,
+        expectedRefund: plan.refundTotal,
+        approval: { userId: pharmacist.id, pin: pharmacist.pin },
+      });
+      cash -= done.cashToGiveBack;
+      for (const n of done.nonCash) {
+        if (n.method === 'card') card -= n.amount;
+        else wallet -= n.amount;
+      }
+      refunded += done.refundTotal;
+    }
+    expect(refunded).toBeGreaterThan(0);
+
     const totals = await getShiftTotals(t.app, shift.id);
+    expect(totals.returns).toEqual({ count: 3, total: refunded });
     expect(totals.sales).toMatchObject({ count: 28, total: salesTotal });
     expect(totals.payments.cash.net).toBe(cash);
     expect(totals.payments.card.net).toBe(card);

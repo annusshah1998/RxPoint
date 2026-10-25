@@ -2,6 +2,7 @@ import {
   addItem,
   setBillDiscount,
   setLineDiscount,
+  setRxCheck,
   uuidv7,
   type Cart,
   type DiscountSpec,
@@ -15,10 +16,12 @@ import { openDatabase } from './open';
 import { login } from './services/auth';
 import { completeSale, getSellable, planSale } from './services/checkout';
 import { saveDraft, startDraft } from './services/drafts';
-import type { ProductInput } from './services/catalog';
+import { createProduct, type ProductInput } from './services/catalog';
 import { setupStore } from './services/setup';
 import { openShift, type OpenShift } from './services/shift';
+import { addOpeningStock } from './services/stock';
 import { createUser } from './services/users';
+import { insertRow } from './writes';
 
 export interface TestApp {
   db: Db;
@@ -162,3 +165,135 @@ export async function checkout(app: AppContext, cart: Cart, tenders?: Tender[]) 
     expectedTotal: total,
   });
 }
+
+/**
+ * The worked sale from docs/m2-design.md §3.1:
+ *   Panadol 500mg 2 strips, Brufen 400mg 3 tablets (no stock on record),
+ *   Augmentin 625mg 8 tablets at 10% off, a thermometer (18% tax, never discounted),
+ *   and 2% off the bill. Total Rs 1,965.00 (rounding −0.39).
+ */
+export async function workedStore(t?: TestApp) {
+  t ??= await createTestApp();
+  const now = '2026-10-21T09:00:00.000Z';
+  const vat = 'tax-18';
+  await t.db.transaction().execute((trx) =>
+    insertRow(trx, now, 'tax_class', {
+      id: vat,
+      name: 'GST 18%',
+      rate_bp: 1800,
+      is_active: 1,
+      created_at: now,
+      updated_at: now,
+    }),
+  );
+  const panadol = await createProduct(t.app, tabletInput());
+  const brufen = await createProduct(
+    t.app,
+    tabletInput({
+      name: 'Brufen',
+      strength: '400mg',
+      manufacturer: 'Abbott',
+      ingredients: [{ generic: 'Ibuprofen', strength: '400mg' }],
+      units: [
+        { name: 'Tablet', qty: 1, isSellable: true, barcodes: [] },
+        { name: 'Strip', qty: 10, isSellable: true, barcodes: [] },
+      ],
+      salePrice: 24567,
+      priceQty: 10,
+      costPrice: null,
+    }),
+  );
+  const augmentin = await createProduct(
+    t.app,
+    tabletInput({
+      name: 'Augmentin',
+      strength: '625mg',
+      ingredients: [{ generic: 'Amoxicillin', strength: '500mg' }],
+      units: [
+        { name: 'Tablet', qty: 1, isSellable: true, barcodes: [] },
+        { name: 'Strip', qty: 6, isSellable: true, barcodes: [] },
+        { name: 'Box', qty: 18, isSellable: true, barcodes: ['8961234567890'] },
+      ],
+      salePrice: 43620,
+      priceQty: 6,
+      costPrice: 37077,
+      rxRequired: true,
+    }),
+  );
+  const thermometer = await createProduct(t.app, {
+    name: 'Thermometer',
+    form: 'device',
+    units: [{ name: 'Piece', qty: 1, isSellable: true, barcodes: [] }],
+    salePrice: 89999,
+    priceQty: 1,
+    costPrice: 60000,
+    taxClassId: vat,
+    allowDiscount: false,
+  });
+  const pn01 = await addOpeningStock(t.app, {
+    productId: panadol.id,
+    batchNo: 'PN-01',
+    expiryDate: '2027-01-31',
+    qty: 15,
+    costPrice: 62475,
+    mrp: 73500,
+  });
+  const pn02 = await addOpeningStock(t.app, {
+    productId: panadol.id,
+    batchNo: 'PN-02',
+    expiryDate: '2027-06-30',
+    qty: 30,
+    costPrice: 62475,
+    mrp: 73500,
+  });
+  const au = await addOpeningStock(t.app, {
+    productId: augmentin.id,
+    batchNo: 'AU1123',
+    expiryDate: '2027-03-31',
+    qty: 18,
+    costPrice: 37077,
+    mrp: 41500,
+  });
+  await addOpeningStock(t.app, {
+    productId: thermometer.id,
+    batchNo: 'TH-1',
+    expiryDate: null,
+    qty: 5,
+    costPrice: 60000,
+  });
+  return {
+    ...t,
+    panadol,
+    brufen,
+    augmentin,
+    thermometer,
+    batches: { pn01: pn01.batchId, pn02: pn02.batchId, au: au.batchId },
+  };
+}
+
+export type WorkedStore = Awaited<ReturnType<typeof workedStore>>;
+
+export async function workedCart(s: WorkedStore, app = s.app): Promise<Cart> {
+  const cart = await ringUp(
+    app,
+    [
+      { productId: s.panadol.id, unit: 'Strip', qty: 2 },
+      { productId: s.brufen.id, unit: 'Tablet', qty: 3 },
+      {
+        productId: s.augmentin.id,
+        unit: 'Tablet',
+        qty: 8,
+        discount: { kind: 'percent', bp: 1000 },
+      },
+      { productId: s.thermometer.id, qty: 1 },
+    ],
+    { kind: 'percent', bp: 200 },
+  );
+  return setRxCheck(cart, 'seen');
+}
+
+/** Card Rs 1,000 (slip 4417) plus Rs 1,000 cash for the worked sale. */
+export const WORKED_SPLIT = [
+  { method: 'card' as const, amount: 100000, reference: '4417' },
+  { method: 'cash' as const, tendered: 100000 },
+];

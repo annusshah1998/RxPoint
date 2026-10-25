@@ -1096,3 +1096,29 @@ kbd {
 .batch-chip {
   font-size: 12px;
 }
+
+/* Returns: the item table needs more room than the sale detail. */
+.modal:has(.return-form) {
+  max-width: 860px;
+}
+.return-form .table td {
+  vertical-align: top;
+}
+.return-form .table .input {
+  width: 9em;
+}
+.return-form .field-error {
+  display: block;
+}
+.return-summary {
+  margin-top: 12px;
+}
+.refund-rows {
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+}
+.refund-rows legend {
+  margin-bottom: 4px;
+  font-weight: 600;
+}

@@ -15,6 +15,7 @@ export * from './services/guards';
 export * from './services/import';
 export * from './services/integrity';
 export * from './services/receipt-data';
+export * from './services/returns';
 export * from './services/sale-build';
 export * from './services/sales';
 export * from './services/search';
