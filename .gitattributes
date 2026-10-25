@@ -1,0 +1,7 @@
+# Keep LF line endings on every OS so Prettier passes on Windows checkouts too.
+* text=auto eol=lf
+
+# Binary files: never convert.
+*.png binary
+*.ico binary
+*.icns binary
