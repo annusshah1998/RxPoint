@@ -52,7 +52,11 @@ export function ShiftReport({ totals }: { totals: ShiftTotals }) {
           <Row label={S.shift.card} value={m(payments.card.net)} />
           <Row label={S.shift.wallet} value={m(payments.wallet.net)} />
           {wallets.map(([provider, amount]) => (
-            <Row key={provider} label={`  ${provider}`} value={m(amount)} />
+            <Row
+              key={provider}
+              label={`  ${S.receipt.wallets[provider] ?? provider}`}
+              value={m(amount)}
+            />
           ))}
         </tbody>
       </table>

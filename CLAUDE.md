@@ -94,9 +94,11 @@ Playwright `getByLabel`. Keep it keyboard-friendly: scanners type fast and press
 
 ## Status
 
-M1 (foundations, catalog, stock, import) is done. M2 checkout is in progress (see
-`docs/plan.md` and the build order in `docs/m2-design.md`): login, roles and approvals,
-shifts, the Sale screen (the home route), batch picker, discounts, controlled-drug
-capture, split payments, hold/resume, void, returns, receipt preview and backups are
-built. Left: real printing and the cash drawer, the clock banner, the scan detector, a
-full-day e2e test and the ADRs. No printer or scanner is needed to run or test the till.
+M1 (foundations, catalog, stock, import) is done. M2a, a full day of sales on one till, is
+done (see `docs/plan.md` and the build order in `docs/m2-design.md`): login, roles and
+approvals, shifts, the Sale screen (the home route), batch picker, discounts,
+controlled-drug capture, split payments, hold/resume, void, returns, receipt preview,
+backups, the clock guard, the scan detector and the keyboard shortcuts with F1 help are
+built, and `e2e/full-day.spec.ts` checks a day's shift report against its own sums. Left
+for M2b: real printing and the cash drawer, WebView2 keys, the backup mirror folder and the
+ADRs. No printer or scanner is needed to run or test the till.

@@ -706,7 +706,8 @@ says so. Restoring from a backup is coming in a later version.
 
 ## 19. Known issues
 
-- The shift report shows wallet names in small letters ("jazzcash").
+- After a void or a return, the steps name a wallet in small letters ("Reverse the Rs 500.00
+  jazzcash payment").
 
 ## 20. Updating this guide
 

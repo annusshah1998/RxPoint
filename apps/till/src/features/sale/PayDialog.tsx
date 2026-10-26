@@ -579,7 +579,9 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
             </>
           )}
           <div className="form-actions">
-            <Button type="submit" variant="primary" disabled={busy}>
+            {/* With nothing to pay there is no cash box, so Enter needs the cursor here,
+                also when an approval step had it before. */}
+            <Button type="submit" variant="primary" disabled={busy} autoFocus={total === 0}>
               {S.pay.complete}
             </Button>
             <Button onClick={onClose}>{S.common.cancel}</Button>

@@ -85,8 +85,10 @@ Built and tested:
   the sale was paid (card and wallet capped, cash limited to the drawer); a pharmacist's
   PIN for cashiers, the owner's after the return window (7 days), a return receipt
 
-Still to do for M2: printing to a real printer and the cash drawer, the clock warning
-banner, the scanner-speed detector, a full-day browser test, and the ADRs.
+M2a (a full day of sales on one till) is done: the clock warning banner, the
+scanner-speed detector, keyboard shortcuts with F1 help and a full-day browser test are
+built too. Still to do for M2 (M2b): printing to a real printer and the cash drawer,
+WebView2 keys, the backup mirror folder, and the ADRs.
 
 ## Open items carried into M2
 

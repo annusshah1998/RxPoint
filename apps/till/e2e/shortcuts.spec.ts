@@ -300,5 +300,7 @@ test('Pay: Alt+K adds a card row and Alt+W a wallet row', async ({ page }) => {
   await page.keyboard.press('Alt+5');
   await expect(page.getByRole('row', { name: /^Card/ })).toContainText('Rs 436.00');
   await expect(page.getByRole('row', { name: /^Wallets/ })).toContainText('Rs 436.00');
+  // Each wallet by the name the cashier picked, not its stored key.
+  await expect(page.getByRole('row', { name: /^Easypaisa/ })).toContainText('Rs 436.00');
   expect(problems).toEqual([]);
 });
