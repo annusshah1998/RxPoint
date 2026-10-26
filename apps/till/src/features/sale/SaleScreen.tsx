@@ -35,17 +35,20 @@ import {
 } from '@app/db';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { dialogOpen, keyLetter, onlyMods } from '../../app/keys';
 import { useRoute } from '../../app/router';
 import { useServices } from '../../app/services';
 import { productTitle } from '../../lib/format';
 import { useDebounced } from '../../lib/use-debounced';
 import { S } from '../../strings';
-import { Badge, Button, Card, Loading, Notice, PageHeader, TextInput } from '../../ui';
+import { Badge, Button, Card, Loading, Modal, Notice, PageHeader, TextInput } from '../../ui';
+import { CashMovementDialog, NoSaleDialog } from '../shift/CashDialogs';
 import { BatchDialog } from './BatchDialog';
 import { DiscountDialog } from './DiscountDialog';
 import { HeldDialog, HoldDialog } from './HoldDialogs';
 import { PayDialog } from './PayDialog';
 import { QtyDialog } from './QtyDialog';
+import { ReprintDialog } from './ReprintDialog';
 import { useSale } from './use-sale';
 import { useScanGuard } from './use-scan-guard';
 
@@ -56,7 +59,13 @@ type Dialog =
   | { kind: 'qty'; lineKey: string }
   | { kind: 'discount'; lineKey: string | null }
   | { kind: 'batch'; lineKey: string }
+  | { kind: 'clear' }
+  | { kind: 'reprint' }
+  | { kind: 'cash' }
+  | { kind: 'noSale' }
   | null;
+
+type AboveMrp = Extract<SaleWarning, { kind: 'above_mrp' }>;
 
 export function SaleScreen() {
   const { ctx } = useServices();
@@ -168,11 +177,39 @@ function Till() {
     return true;
   }, dialog === null);
 
-  // Function keys work wherever the focus is on this screen.
+  /** Alt+M and the line's "Sell at MRP" button: the price comes down to the batch MRP. */
+  const sellAtMrp = useCallback(
+    (lineKey: string | null) => {
+      const mrp = plan?.warnings.find(
+        (w): w is AboveMrp => w.kind === 'above_mrp' && w.lineKey === lineKey,
+      );
+      if (!mrp) {
+        setMessage(S.sale.notAboveMrp);
+        return;
+      }
+      update((c) => setPrice(c, mrp.lineKey, mrp.mrpPrice, 'mrp'));
+      setMessage(null);
+    },
+    [plan, update],
+  );
+
+  // Function keys and the Sale shortcuts work wherever the focus is on this screen, while
+  // no dialog (the F1 list included) is open.
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (dialog) return;
-      if (e.key === 'F9') {
+      if (dialog || dialogOpen()) return;
+      const letter = keyLetter(e);
+      if (onlyMods(e, { alt: true }) && (letter === 'm' || letter === 'c' || letter === 'd')) {
+        e.preventDefault();
+        if (letter === 'm') sellAtMrp(cart?.selectedKey ?? null);
+        else setDialog({ kind: letter === 'c' ? 'cash' : 'noSale' });
+      } else if (onlyMods(e, { ctrl: true }) && letter === 'p') {
+        e.preventDefault();
+        setDialog({ kind: 'reprint' });
+      } else if (onlyMods(e, { ctrl: true, shift: true }) && e.key === 'Delete') {
+        e.preventDefault();
+        if (cart && cart.lines.length > 0) setDialog({ kind: 'clear' });
+      } else if (e.key === 'F9') {
         e.preventDefault();
         if (cart && cart.lines.length > 0) setDialog({ kind: 'pay' });
       } else if (e.key === 'F8') {
@@ -190,7 +227,7 @@ function Till() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cart, dialog]);
+  }, [cart, dialog, sellAtMrp]);
 
   if (!cart) return <Loading />;
   const close = () => {
@@ -230,6 +267,7 @@ function Till() {
           cart={cart}
           plan={plan}
           update={update}
+          onSellAtMrp={sellAtMrp}
           onFocusScan={focusScan}
           onEditQty={(lineKey) => setDialog({ kind: 'qty', lineKey })}
           onPickBatch={(lineKey) => setDialog({ kind: 'batch', lineKey })}
@@ -244,14 +282,26 @@ function Till() {
         onHeld={() => setDialog({ kind: 'held' })}
         onLineDiscount={() => setDialog({ kind: 'discount', lineKey: cart.selectedKey })}
         onBillDiscount={() => setDialog({ kind: 'discount', lineKey: null })}
-        onClear={async () => {
-          if (!window.confirm(S.sale.clearConfirm)) return;
-          await sale.flush();
-          await discardDraft(ctx, { draftId: cart.id });
-          await sale.reload();
-          focusScan();
-        }}
+        onReprint={() => setDialog({ kind: 'reprint' })}
+        onCash={() => setDialog({ kind: 'cash' })}
+        onNoSale={() => setDialog({ kind: 'noSale' })}
+        onClear={() => setDialog({ kind: 'clear' })}
       />
+      {dialog?.kind === 'clear' && (
+        <ClearDialog
+          onConfirm={async () => {
+            // Logged with the items and total (sale.draft_discard) in the same transaction.
+            await sale.flush();
+            await discardDraft(ctx, { draftId: cart.id });
+            await sale.reload();
+            close();
+          }}
+          onClose={close}
+        />
+      )}
+      {dialog?.kind === 'reprint' && <ReprintDialog onClose={close} />}
+      {dialog?.kind === 'cash' && <CashMovementDialog kind={null} onClose={close} />}
+      {dialog?.kind === 'noSale' && <NoSaleDialog onClose={close} />}
       {dialog?.kind === 'pay' && <PayDialog sale={sale} onClose={close} />}
       {dialog?.kind === 'hold' && <HoldDialog sale={sale} onClose={close} />}
       {dialog?.kind === 'batch' && (
@@ -330,6 +380,9 @@ function ScanBox({
     const empty = text.trim() === '';
     const key = cart.selectedKey;
     const index = cart.lines.findIndex((l) => l.key === key);
+    // Line keys are plain presses: Ctrl+− (zoom), Alt+← (back) and Ctrl+Shift+Delete
+    // (clear the sale) must not change the selected line.
+    const plain = !e.ctrlKey && !e.altKey && !e.metaKey;
     if (e.key === 'Enter') {
       e.preventDefault();
       if (empty && key) onEditQty(key);
@@ -350,13 +403,13 @@ function ScanBox({
         const prev = cart.lines[Math.max(index - 1, 0)]!;
         update((c) => selectLine(c, prev.key));
       }
-    } else if (empty && key && (e.key === '+' || e.key === '-')) {
+    } else if (plain && empty && key && (e.key === '+' || e.key === '-')) {
       e.preventDefault();
       update((c) => bumpQty(c, key, e.key === '+' ? 1 : -1));
-    } else if (empty && key && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    } else if (plain && empty && key && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault();
       update((c) => cycleUnit(c, key, e.key === 'ArrowRight' ? 1 : -1));
-    } else if (empty && key && e.key === 'Delete') {
+    } else if (plain && !e.shiftKey && empty && key && e.key === 'Delete') {
       e.preventDefault();
       const line = cart.lines.find((l) => l.key === key)!;
       update((c) =>
@@ -484,6 +537,7 @@ function CartTable({
   cart,
   plan,
   update,
+  onSellAtMrp,
   onFocusScan,
   onEditQty,
   onPickBatch,
@@ -491,6 +545,7 @@ function CartTable({
   cart: Cart;
   plan: SalePlan | undefined;
   update: (change: (cart: Cart) => Cart) => boolean;
+  onSellAtMrp: (lineKey: string) => void;
   onFocusScan: () => void;
   onEditQty: (lineKey: string) => void;
   onPickBatch: (lineKey: string) => void;
@@ -527,9 +582,8 @@ function CartTable({
             const planned = plan?.lines.find((l) => l.key === line.key);
             const unit = line.units.find((u) => u.id === line.unitId) ?? line.units[0]!;
             const price = planned?.price ?? line.price;
-            const mrp = plan?.warnings.find(
-              (w): w is Extract<SaleWarning, { kind: 'above_mrp' }> =>
-                w.kind === 'above_mrp' && w.lineKey === line.key,
+            const mrp = plan?.warnings.some(
+              (w) => w.kind === 'above_mrp' && w.lineKey === line.key,
             );
             const discount = planned ? planned.lineDiscount + planned.billShare : 0;
             const field = plan?.fields;
@@ -554,12 +608,14 @@ function CartTable({
                       <Button
                         size="small"
                         variant="ghost"
+                        aria-keyshortcuts={S.sale.mrpKey}
                         onClick={(e) => {
                           e.stopPropagation();
-                          update((c) => setPrice(c, line.key, mrp.mrpPrice, 'mrp'));
+                          onSellAtMrp(line.key);
                         }}
                       >
                         {S.sale.chips.sellAtMrp}
+                        {line.key === cart.selectedKey && <kbd>{S.sale.mrpKey}</kbd>}
                       </Button>
                     )}
                     {planned?.parts.some((p) => p.placeholder) && (
@@ -662,6 +718,9 @@ function TotalsPanel({
   onHeld,
   onLineDiscount,
   onBillDiscount,
+  onReprint,
+  onCash,
+  onNoSale,
   onClear,
 }: {
   cart: Cart;
@@ -671,6 +730,9 @@ function TotalsPanel({
   onHeld: () => void;
   onLineDiscount: () => void;
   onBillDiscount: () => void;
+  onReprint: () => void;
+  onCash: () => void;
+  onNoSale: () => void;
   onClear: () => void;
 }) {
   const { store } = useServices();
@@ -720,12 +782,57 @@ function TotalsPanel({
         <Button disabled={!hasLines} onClick={onBillDiscount}>
           {S.sale.billDiscountButton} <kbd>{S.sale.billDiscountKey}</kbd>
         </Button>
+      </div>
+      <div className="till-actions">
+        <Button size="small" variant="ghost" onClick={onReprint}>
+          {S.sale.reprintLast} <kbd>{S.sale.reprintKey}</kbd>
+        </Button>
+        <Button size="small" variant="ghost" onClick={onCash}>
+          {S.sale.cashInOut} <kbd>{S.sale.cashKey}</kbd>
+        </Button>
+        <Button size="small" variant="ghost" onClick={onNoSale}>
+          {S.shift.noSale} <kbd>{S.sale.noSaleKey}</kbd>
+        </Button>
         {can(store.userRole, 'sale.sell') && hasLines && (
-          <Button variant="ghost" onClick={onClear}>
-            {S.sale.clear}
+          <Button size="small" variant="ghost" onClick={onClear}>
+            {S.sale.clear} <kbd>{S.sale.clearKey}</kbd>
           </Button>
         )}
       </div>
     </aside>
+  );
+}
+
+/** Ctrl+Shift+Delete or "Clear sale": Enter clears, Esc keeps the sale. */
+function ClearDialog({
+  onConfirm,
+  onClose,
+}: {
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Modal title={S.sale.clearTitle} onClose={onClose}>
+      <p>{S.sale.clearText}</p>
+      <div className="form-actions">
+        <Button
+          variant="danger"
+          autoFocus
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onConfirm();
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {S.sale.clear}
+        </Button>
+        <Button onClick={onClose}>{S.common.cancel}</Button>
+      </div>
+    </Modal>
   );
 }

@@ -881,7 +881,7 @@ The audit-log viewer (`listAudit` and its screen) is **M4**. M2 records every ac
 
 ### 5.4 Keys
 
-A capture-phase handler calls `preventDefault` on F1–F12, Ctrl+F/G/H/J/P/R/S/U/D/K, Ctrl+±/0 and Alt+←/→. Every action also has a button.
+A capture-phase handler (`isBrowserKey` in `apps/till/src/app/keys.ts`) calls `preventDefault` on F1–F12, Ctrl+F/G/H/J/P/R/S/U/D/K, Ctrl+±/0, Alt+←/→ and Ctrl+Shift+Delete (the browser's "Clear browsing data"). Every action also has a button; F1 shows this table from `S.help`.
 
 | Where          | Key                                        | Action                                                                                                                                                                                   |
 | -------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

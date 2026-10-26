@@ -2,7 +2,7 @@ import { PRODUCT } from '@app/config';
 import { ROLE_LABELS, can, type Permission } from '@app/core';
 import { getStoreSettings } from '@app/db';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ImportScreen } from '../features/import/ImportScreen';
 import { ProductDetailScreen } from '../features/products/ProductDetailScreen';
 import { ProductEditScreen } from '../features/products/ProductEditScreen';
@@ -18,19 +18,43 @@ import { StaffScreen } from '../features/staff/StaffScreen';
 import { StockScreen } from '../features/stock/StockScreen';
 import { S } from '../strings';
 import { Button } from '../ui';
+import { HelpDialog } from './HelpDialog';
+import { dialogOpen, keyDigit, onlyMods } from './keys';
 import { routeHash, useRoute, type Route } from './router';
 import { useServices } from './services';
 
-const NAV: { label: string; route: Route; matches: Route['name'][]; needs?: Permission }[] = [
-  { label: S.nav.sale, route: { name: 'sale' }, matches: ['sale'], needs: 'sale.sell' },
-  { label: S.nav.sales, route: { name: 'sales' }, matches: ['sales'], needs: 'sale.reprint' },
-  { label: S.nav.shift, route: { name: 'shift' }, matches: ['shift'], needs: 'shift.open' },
+interface NavItem {
+  label: string;
+  route: Route;
+  matches: Route['name'][];
+  needs?: Permission;
+  /** Alt+this digit opens the screen (§5.4). */
+  key?: string;
+}
+
+const NAV: NavItem[] = [
+  { label: S.nav.sale, route: { name: 'sale' }, matches: ['sale'], needs: 'sale.sell', key: '1' },
+  {
+    label: S.nav.sales,
+    route: { name: 'sales' },
+    matches: ['sales'],
+    needs: 'sale.reprint',
+    key: '2',
+  },
+  {
+    label: S.nav.shift,
+    route: { name: 'shift' },
+    matches: ['shift'],
+    needs: 'shift.open',
+    key: '5',
+  },
   {
     label: S.nav.products,
     route: { name: 'products' },
     matches: ['products', 'product', 'product-new', 'product-edit'],
+    key: '3',
   },
-  { label: S.nav.stock, route: { name: 'stock' }, matches: ['stock'] },
+  { label: S.nav.stock, route: { name: 'stock' }, matches: ['stock'], key: '4' },
   { label: S.nav.import, route: { name: 'import' }, matches: ['import'], needs: 'import.run' },
   { label: S.nav.backups, route: { name: 'backups' }, matches: ['backups'], needs: 'backup.run' },
   { label: S.nav.staff, route: { name: 'staff' }, matches: ['staff'], needs: 'users.manage' },
@@ -39,6 +63,7 @@ const NAV: { label: string; route: Route; matches: Route['name'][]; needs?: Perm
     route: { name: 'settings' },
     matches: ['settings'],
     needs: 'settings.edit',
+    key: '9',
   },
 ];
 
@@ -67,17 +92,32 @@ export function Shell() {
   useIdleLock(settings.data?.autoLockMinutes, lock);
   useBackupSchedule();
   const clock = useClockStatus();
+  const [help, setHelp] = useState(false);
+  const nav = NAV.filter((item) => !item.needs || can(store.userRole, item.needs));
 
+  // Keys that work on every screen: Ctrl+L, F1 and Alt+digit for the screens this person
+  // may open. A screen key waits while a dialog is open, so a half-done form isn't lost.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         void lock();
+      } else if (e.key === 'F1' && onlyMods(e, {})) {
+        e.preventDefault();
+        setHelp((open) => !open);
+      } else if (onlyMods(e, { alt: true })) {
+        const digit = keyDigit(e);
+        const item = digit ? NAV.find((n) => n.key === digit) : undefined;
+        if (!item) return;
+        e.preventDefault();
+        if (dialogOpen()) return;
+        if (item.needs && !can(store.userRole, item.needs)) return;
+        navigate(item.route);
       }
     };
     window.addEventListener('keydown', onKey, { capture: true });
     return () => window.removeEventListener('keydown', onKey, { capture: true });
-  }, [lock]);
+  }, [lock, navigate, store.userRole]);
 
   // A date that can't be right stops everything until Windows is fixed (§4.8).
   if (clock.data?.blocks) {
@@ -90,18 +130,24 @@ export function Shell() {
         <div className="brand">{PRODUCT.name}</div>
         <div className="store-name">{store.branchName}</div>
         <nav aria-label="Main">
-          {NAV.filter((item) => !item.needs || can(store.userRole, item.needs)).map((item) => (
+          {nav.map((item) => (
             <a
               key={item.label}
               href={routeHash(item.route)}
               className={`nav-link ${item.matches.includes(route.name) ? 'active' : ''}`}
               aria-current={item.matches.includes(route.name) ? 'page' : undefined}
+              aria-keyshortcuts={item.key ? S.nav.key(item.key) : undefined}
               onClick={(e) => {
                 e.preventDefault();
                 navigate(item.route);
               }}
             >
               {item.label}
+              {item.key && (
+                <kbd className="nav-key" aria-hidden="true">
+                  {S.nav.key(item.key)}
+                </kbd>
+              )}
             </a>
           ))}
         </nav>
@@ -110,9 +156,24 @@ export function Shell() {
             {S.nav.till} {store.tillCode} · {store.userName}
             <div className="muted">{ROLE_LABELS[store.userRole]}</div>
           </div>
-          <Button size="small" variant="ghost" onClick={() => void lock()} title={S.auth.lockHint}>
-            {S.auth.lock}
-          </Button>
+          <div className="sidebar-buttons">
+            <Button
+              size="small"
+              variant="ghost"
+              onClick={() => setHelp(true)}
+              aria-keyshortcuts={S.help.key}
+            >
+              {S.help.button} <kbd>{S.help.key}</kbd>
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              onClick={() => void lock()}
+              title={S.auth.lockHint}
+            >
+              {S.auth.lock}
+            </Button>
+          </div>
         </div>
       </aside>
       <main className="main">
@@ -120,6 +181,12 @@ export function Shell() {
         {clock.data && <ClockBanner status={clock.data} />}
         <Screen route={route} canSell={can(store.userRole, 'sale.sell')} />
       </main>
+      {help && (
+        <HelpDialog
+          screens={nav.flatMap((n) => (n.key ? [{ key: n.key, label: n.label }] : []))}
+          onClose={() => setHelp(false)}
+        />
+      )}
     </div>
   );
 }

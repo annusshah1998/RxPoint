@@ -22,6 +22,7 @@ import { errorMessage } from '../lib/errors';
 import { createBackupPort, createExecutor, currentPlatform, type Platform } from '../platform';
 import { S } from '../strings';
 import { Notice } from '../ui';
+import { useBrowserKeyGuard } from './keys';
 import { ServicesProvider, type Services } from './services';
 import { Shell } from './Shell';
 
@@ -72,6 +73,7 @@ async function firstScreen(ctx: ServiceContext): Promise<BootState> {
 export function Boot() {
   const [state, setState] = useState<BootState>({ status: 'starting' });
   const [base, setBase] = useState<Opened | null>(null);
+  useBrowserKeyGuard();
 
   const fail = useCallback((error: unknown) => {
     console.error(error);

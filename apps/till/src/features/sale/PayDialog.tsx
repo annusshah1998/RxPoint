@@ -31,6 +31,7 @@ import {
 import type { ReceiptDocument } from '@app/receipt';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { keyLetter, onlyMods } from '../../app/keys';
 import { useServices } from '../../app/services';
 import { errorMessage, fieldErrors, isApprovalError } from '../../lib/errors';
 import { S } from '../../strings';
@@ -237,20 +238,52 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
     onClose();
   }
 
-  // Alt+Y / Alt+N answer "Prescription seen?".
+  const [focusTender, setFocusTender] = useState<number | null>(null);
   useEffect(() => {
-    if (stage.kind !== 'tender' || !rxNeeded) return;
+    if (focusTender === null) return;
+    document
+      .querySelector<HTMLElement>(`[data-tender="${focusTender}"] :is(select, input)`)
+      ?.focus();
+    setFocusTender(null);
+  }, [focusTender]);
+
+  /** Adds a card or wallet row for what is still to pay, and puts the cursor in it. */
+  const addTender = useCallback(
+    (method: OtherTender['method']) => {
+      const id = Date.now() + others.length;
+      setOthers((list) => [
+        ...list,
+        {
+          id,
+          method,
+          provider: 'jazzcash',
+          amount: toMajorString(Math.max(total - nonCashTotal, 0)),
+          reference: '',
+          received: false,
+        },
+      ]);
+      setFocusTender(id);
+    },
+    [others.length, total, nonCashTotal],
+  );
+
+  // Alt+Y / Alt+N answer "Prescription seen?"; Alt+K / Alt+W add a card / wallet row.
+  useEffect(() => {
+    if (stage.kind !== 'tender') return;
     const onKey = (e: KeyboardEvent) => {
-      if (!e.altKey) return;
-      const k = e.key.toLowerCase();
-      if (k === 'y' || k === 'n') {
+      if (!onlyMods(e, { alt: true })) return;
+      const k = keyLetter(e);
+      if (rxNeeded && (k === 'y' || k === 'n')) {
         e.preventDefault();
         sale.update((c) => setRxCheck(c, k === 'y' ? 'seen' : 'not_seen'));
+      } else if (total > 0 && (k === 'k' || k === 'w')) {
+        e.preventDefault();
+        addTender(k === 'k' ? 'card' : 'wallet');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [stage.kind, rxNeeded, sale]);
+  }, [stage.kind, rxNeeded, sale, total, addTender]);
 
   const fields = fieldErrors(error);
   const title = stage.kind === 'done' ? S.pay.doneTitle : S.pay.title;
@@ -439,7 +472,7 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
                 </Notice>
               )}
               {others.map((o, i) => (
-                <div key={o.id} className="tender-row">
+                <div key={o.id} className="tender-row" data-tender={o.id}>
                   {o.method === 'wallet' && (
                     <Field label={S.pay.walletProvider}>
                       <Select
@@ -512,27 +545,20 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
                 </div>
               ))}
               <div className="cash-suggestions">
-                {(['card', 'wallet'] as const).map((method) => (
-                  <Button
-                    key={method}
-                    size="small"
-                    onClick={() =>
-                      setOthers((list) => [
-                        ...list,
-                        {
-                          id: Date.now() + list.length,
-                          method,
-                          provider: 'jazzcash',
-                          amount: toMajorString(Math.max(total - nonCashTotal, 0)),
-                          reference: '',
-                          received: false,
-                        },
-                      ])
-                    }
-                  >
-                    + {method === 'card' ? S.pay.addCard : S.pay.addWallet}
-                  </Button>
-                ))}
+                <Button
+                  size="small"
+                  aria-keyshortcuts={S.pay.addCardKey}
+                  onClick={() => addTender('card')}
+                >
+                  + {S.pay.addCard} <kbd>{S.pay.addCardKey}</kbd>
+                </Button>
+                <Button
+                  size="small"
+                  aria-keyshortcuts={S.pay.addWalletKey}
+                  onClick={() => addTender('wallet')}
+                >
+                  + {S.pay.addWallet} <kbd>{S.pay.addWalletKey}</kbd>
+                </Button>
                 <Button size="small" disabled title={S.pay.khataSoon}>
                   Khata
                 </Button>

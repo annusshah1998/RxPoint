@@ -92,7 +92,10 @@ code {
   color: #9fbcba;
 }
 .nav-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 10px;
   border-radius: var(--radius);
   color: inherit;
@@ -116,6 +119,28 @@ code {
 }
 .sidebar-footer .muted {
   color: #9fbcba;
+}
+.nav-key {
+  font-size: 10px;
+  opacity: 0.5;
+}
+.sidebar-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.help-group h3 {
+  margin: 12px 0 4px;
+  font-size: 14px;
+}
+.table.help-table th {
+  width: 40%;
+  font-weight: normal;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+  background: none;
 }
 .sidebar-footer .btn-ghost {
   color: #e6f2f1;

@@ -43,8 +43,8 @@ Enter works the same as scanning it.
 2. **Open the shift:** on **Shift**, count the cash in the drawer and press **Open shift**.
 3. **Sell:** on **Sale**, scan or type each item, then press **F9** to take payment.
 4. **During the day:** use **F8** to hold a sale for a customer who steps away, **Sales**
-   to show a receipt again, void a sale or take items back, and **Shift → Cash out** for
-   money taken from the drawer.
+   to show a receipt again, void a sale or take items back, and **Cash in/out** (Alt+C)
+   for money put into or taken from the drawer. **F1** lists every key.
 5. **Leaving the till:** press **Ctrl+L** to lock it. It also locks itself after 5 idle
    minutes.
 6. **Close the shift:** on **Shift**, press **Close shift**, count the drawer, and keep the
@@ -52,31 +52,53 @@ Enter works the same as scanning it.
 
 ## 2. Keyboard shortcuts
 
-Every action also has a button. The scanner types like a keyboard and presses Enter, so
-anything below that says "type and press Enter" also works with a scan. When a dialog
-opens, the cursor is already in its first box (Cash received on Pay, the note on Hold, the
-discount on F6), so you can type straight away and press Enter.
+Every action also has a button. Press **F1**, or **Keys** at the bottom left, to see the
+keys on screen. The scanner types like a keyboard and presses Enter, so anything below
+that says "type and press Enter" also works with a scan. When a dialog opens, the cursor
+is already in its first box (Cash received on Pay, the note on Hold, the discount on F6),
+so you can type straight away and press Enter.
+
+Keys the browser would use (F5 to reload, Ctrl+P to print, Ctrl+F to find, Ctrl+plus or
+minus to zoom, Alt+← to go back and the like) do nothing else on the till, so a stray
+press can't reload or print the page. In the browser preview, Chrome may still act on a
+few of them.
 
 ### Anywhere
 
-| Key        | What it does                                                      |
-| ---------- | ----------------------------------------------------------------- |
-| **Ctrl+L** | Lock the till. Anyone can log in again; a sale in progress stays. |
-| **Esc**    | Close the open dialog (or the suggestion list under a box).       |
-| **Enter**  | Save the form you are in (log in, open shift, apply, record…).    |
+| Key        | What it does                                                                  |
+| ---------- | ----------------------------------------------------------------------------- |
+| **F1**     | Show the list of keys. F1 again or Esc closes it.                             |
+| **Ctrl+L** | Lock the till. Anyone can log in again; a sale in progress stays.             |
+| **Esc**    | Close the open dialog (the top one, if F1 is open over Pay), or a box's list. |
+| **Enter**  | Save the form you are in (log in, open shift, apply, record…).                |
+| **Alt+1**  | Go to Sale.                                                                   |
+| **Alt+2**  | Go to Sales (show a receipt again, void, return).                             |
+| **Alt+3**  | Go to Products.                                                               |
+| **Alt+4**  | Go to Stock & expiry.                                                         |
+| **Alt+5**  | Go to Shift.                                                                  |
+| **Alt+9**  | Go to Settings.                                                               |
+
+The menu on the left shows each screen's key. A screen key only opens screens your role
+can see (a cashier has no Settings; an inventory clerk has no Sale or Sales), and it waits
+while a dialog is open, so a half-filled form isn't lost.
 
 ### Sale screen
 
 These work wherever the cursor is on the Sale screen, as long as no dialog is open.
 
-| Key          | What it does                         |
-| ------------ | ------------------------------------ |
-| **F9**       | Pay                                  |
-| **F8**       | Hold this sale                       |
-| **Shift+F8** | Held sales (resume or discard)       |
-| **F4**       | Pick the batch for the selected line |
-| **F6**       | Discount on the selected line        |
-| **Shift+F6** | Discount on the whole bill           |
+| Key                   | What it does                                                                   |
+| --------------------- | ------------------------------------------------------------------------------ |
+| **F9**                | Pay                                                                            |
+| **F8**                | Hold this sale                                                                 |
+| **Shift+F8**          | Held sales (resume or discard)                                                 |
+| **F4**                | Pick the batch for the selected line                                           |
+| **F6**                | Discount on the selected line                                                  |
+| **Shift+F6**          | Discount on the whole bill                                                     |
+| **Alt+M**             | Sell the selected line at its batch MRP (when it is above MRP)                 |
+| **Ctrl+P**            | Show the last receipt of this till again, marked `*** REPRINT ***`             |
+| **Alt+C**             | Cash in or out of the drawer                                                   |
+| **Alt+D**             | Open the drawer without a sale (asks for a reason)                             |
+| **Ctrl+Shift+Delete** | Clear the sale. It asks first: Enter clears, Esc keeps it. Clearing is logged. |
 
 ### Scan box (the box at the top of the Sale screen)
 
@@ -91,19 +113,22 @@ These work wherever the cursor is on the Sale screen, as long as no dialog is op
 When the scan box is **empty**, these keys work on the selected line (the one with the
 bar on its left):
 
-| Key        | What it does                                                     |
-| ---------- | ---------------------------------------------------------------- |
-| **↑ / ↓**  | Select the line above / below.                                   |
-| **+ / −**  | One more / one less of the line's pack size (never below one).   |
-| **← / →**  | Change the pack size (tablet, strip, box).                       |
-| **Delete** | Remove the line.                                                 |
-| **Ctrl+Z** | Bring back the line you just removed (or press **Undo remove**). |
+| Key        | What it does                                                        |
+| ---------- | ------------------------------------------------------------------- |
+| **↑ / ↓**  | Select the line above / below.                                      |
+| **Enter**  | Change the quantity of the selected line (type `3`, `2s`, `1b 2t`). |
+| **+ / −**  | One more / one less of the line's pack size (never below one).      |
+| **← / →**  | Change the pack size (tablet, strip, box).                          |
+| **Delete** | Remove the line.                                                    |
+| **Ctrl+Z** | Bring back the line you just removed (or press **Undo remove**).    |
 
 ### Pay dialog
 
 | Key                        | What it does                                                         |
 | -------------------------- | -------------------------------------------------------------------- |
 | **Enter** in Cash received | Complete the sale. With nothing typed, the customer paid exact cash. |
+| **Alt+K**                  | Add a card payment for what is still to pay; the cursor goes to it.  |
+| **Alt+W**                  | Add a wallet payment (JazzCash, Easypaisa, Raast) the same way.      |
 | **Alt+Y / Alt+N**          | Answer "Prescription seen?" with Seen / Not seen.                    |
 | **Enter** after the sale   | Start the next sale.                                                 |
 
@@ -253,6 +278,9 @@ they have counted.
 - **Open drawer:** open the drawer without a sale. It asks for a reason; cashiers need a
   pharmacist's or the owner's PIN.
 
+The Sale screen has the same forms without leaving the sale: **Cash in/out** (Alt+C, with
+an "In or out" choice that starts on Cash out) and **Open drawer** (Alt+D).
+
 ![Cash out](images/cash-out.png)
 
 A shift open for more than 18 hours shows a warning: close it and open a new one.
@@ -314,14 +342,18 @@ total, with rounding, and the action buttons with their keys.
 | **CP2610 expires Oct 2026** (amber)             | That batch expires within 30 days. Check the pack.                                                                                                                                     |
 | **Stock shows 0 — selling 1 Strip** (amber)     | Selling more than the till has on record. Allowed (sales never stop), and counted on the shift report.                                                                                 |
 | **Not in recorded stock** (grey)                | Part of the line has no recorded batch.                                                                                                                                                |
-| **Above MRP by Rs …** (amber)                   | The price is above the MRP printed on the batch. Press **Sell at MRP** to bring it down, or carry on; it is counted on the shift report.                                               |
+| **Above MRP by Rs …** (amber)                   | The price is above the MRP printed on the batch. Press **Sell at MRP** (or Alt+M on the selected line) to bring it down, or carry on; it is counted on the shift report.               |
 | **Expired stock on record** (red)               | The only stock on record has expired. Pay asks you to confirm the pack in hand is in date.                                                                                             |
 | **Price now Rs …** (blue)                       | The price changed since the item was added (for example in a held sale).                                                                                                               |
 | **Discount removed — more than the new amount** | The quantity went down and the discount no longer fits.                                                                                                                                |
 
 **Changing a line:** click it (or use ↑ / ↓ with the scan box empty). Then **+ / −**
 change the quantity, **← / →** change the pack size, **Delete** or **×** removes it and
-**Ctrl+Z** brings it back. **Clear sale** removes everything after asking.
+**Ctrl+Z** brings it back. **Clear sale** (Ctrl+Shift+Delete) removes everything after
+asking; the cleared items and total are logged.
+
+Under the totals are **Last receipt** (Ctrl+P: this till's last receipt again, marked
+`*** REPRINT ***`), **Cash in/out** (Alt+C) and **Open drawer** (Alt+D).
 
 **The sale is saved as you go.** After a power cut or a restart, log in again and the till
 says "The sale in progress was restored."
@@ -359,8 +391,8 @@ amounts (exact, then the next Rs 100, 500, 1,000 and 5,000). Pressing Enter with
 empty means exact cash. The change is shown as you type. An amount far above the bill
 (more than Rs 5,000 over, or more than 10 times the bill) shows "looks like a typo".
 
-**Card or wallet:** press **+ Card** or **+ Wallet**. The amount starts at what is still
-due.
+**Card or wallet:** press **+ Card** (Alt+K) or **+ Wallet** (Alt+W). The amount starts
+at what is still due, and the cursor moves to the new row.
 
 - **Card:** the approval code from the card machine is optional.
 - **Wallet** (JazzCash, Easypaisa, Raast): type the transaction ID (at least 4
@@ -435,7 +467,8 @@ Click a sale to see its lines and what you can do with it:
 
 ![Sale detail](images/sale-detail.png)
 
-- **Show receipt again** shows the receipt marked `*** REPRINT ***`.
+- **Show receipt again** shows the receipt marked `*** REPRINT ***`. For the last sale,
+  **Ctrl+P** on the Sale screen does the same.
 - **Void sale** cancels the whole sale.
 - **Return items** takes some or all items back.
 
@@ -689,7 +722,6 @@ pictures to `docs/user-guide/images/` (the script is
 `apps/till/e2e/guide-screenshots.ts`). It is not part of `pnpm test:e2e`. Dates on the
 pictures come from the PC's clock. Check this guide still matches after re-running it.
 
-The keys in [section 2](#2-keyboard-shortcuts) are the ones built today. The design
-(`docs/m2-design.md`, section 5.4) plans more: F1 for help, Alt+1–9 to switch screens,
-Alt+M to sell at MRP, Alt+K / Alt+W to add a card or wallet, and Ctrl+P to reprint the
-last receipt. Add them here when they are built.
+The keys in [section 2](#2-keyboard-shortcuts) match the F1 list (`S.help` in
+`apps/till/src/strings.ts`). When a key changes, change both: a unit test
+(`apps/till/src/app/help.test.ts`) fails if a key in the F1 list is missing here.

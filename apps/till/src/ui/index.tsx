@@ -339,6 +339,9 @@ export function Loading() {
   return <div className="loading">{S.common.loading}</div>;
 }
 
+// Open dialogs, oldest first. Escape closes only the newest (F1 help over Pay closes alone).
+const openModals: object[] = [];
+
 /** A centred dialog. Escape or the close button dismisses it. */
 export function Modal({
   title,
@@ -356,11 +359,19 @@ export function Modal({
     onCloseRef.current = onClose;
   });
   useEffect(() => {
+    const me = {};
+    openModals.push(me);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
+      if (e.key !== 'Escape' || e.defaultPrevented || openModals.at(-1) !== me) return;
+      // Marks the key as used, in case the dialog below already counts as the newest.
+      e.preventDefault();
+      onCloseRef.current();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      openModals.splice(openModals.indexOf(me), 1);
+    };
   }, []);
 
   // Put the cursor in the dialog once, so typing and Enter act on it: on a control that

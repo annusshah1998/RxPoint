@@ -82,6 +82,20 @@ describe('createScanDetector', () => {
     steps.push(ctrl.key({ key: 'Enter', timeStamp: 30 }));
     expect(lastScan(steps)).toBeNull();
 
+    // Alt+K, Alt+W, Alt+M… pressed straight before typing a code don't join it.
+    const alt = createScanDetector();
+    const altSteps = [...'k123456'].map((key, i) =>
+      alt.key({ key, timeStamp: i * 5, altKey: i === 0 }),
+    );
+    altSteps.push(alt.key({ key: 'Enter', timeStamp: 35 }));
+    expect(lastScan(altSteps)).toBe('123456');
+    const altInside = createScanDetector();
+    const insideSteps = [...'123456'].map((key, i) =>
+      altInside.key({ key, timeStamp: i * 5, altKey: i === 3 }),
+    );
+    insideSteps.push(altInside.key({ key: 'Enter', timeStamp: 30 }));
+    expect(lastScan(insideSteps)).toBeNull();
+
     const held = createScanDetector();
     const repeats = [...'000000'].map((key, i) =>
       held.key({ key, timeStamp: i * 30, repeat: i > 0 }),
