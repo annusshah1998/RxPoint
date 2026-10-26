@@ -1107,6 +1107,17 @@ You saved Rs 79.90
 7. Scanning the receipt barcode in Returns finds the sale.
 8. Unplug the printer and sell: the sale saves, and Retry works.
 9. Pull the power plug 10 times, mid-cart and mid-Pay: every sale is either complete or still a cart, and `checkRecords` is clean.
+10. **Browser keys (step 24), no hardware needed.** On Windows 10 and on Windows 11, in the installed till, on the Sale screen with two lines in the cart and the cursor in the scan box:
+    - **F5**, **Ctrl+R**, **Ctrl+F5**, **Ctrl+Shift+R:** nothing; the page doesn't reload and the cart stays.
+    - **Ctrl+P:** the till's reprint opens (or says there is no receipt yet); no Windows print dialog.
+    - **Ctrl+F**, **F3:** no find bar.
+    - **F7:** no "Turn on caret browsing?" question.
+    - **Ctrl+plus**, **Ctrl+minus**, **Ctrl+0**, **Ctrl+mouse wheel:** the page keeps its size.
+    - **Alt+←**, **Alt+→:** the page stays; no back or forward.
+    - **F12**, **Ctrl+Shift+I:** nothing in the installed till. In `pnpm tauri dev` they open the developer tools (on purpose, debug builds only).
+    - **Still working:** F1 help, F4, F6, F9 Pay, Alt+1 to Alt+5, Ctrl+A / Ctrl+C / Ctrl+V / Ctrl+Z in the scan box, and a scan.
+
+    If the keys still act, run `pnpm tauri dev` from PowerShell: the console says "Browser keys left on: …" with the reason (for example a WebView2 runtime older than 1.0.864).
 
 ---
 
@@ -1175,6 +1186,7 @@ No change in M2. The File mode is dropped (D3).
 - After that, F5, Ctrl+R, Ctrl+P, F3, F7 and zoom do nothing, and key events still reach the page.
 - Tauri 2.12 has no config option for this: wry has the setting, but tauri-runtime-wry doesn't call it.
 - CI already compiles and lints the `cfg(windows)` code on `windows-latest` for PRs that touch `src-tauri/**`.
+- **As built** (`src/webview.rs`, called from `setup`): a failure is logged to the console ("Browser keys left on: …") and the till still starts, with the page's key guard (`app/keys.ts`) still running. The setting also turns off F12 and Ctrl+Shift+I, so **debug builds** add an `AcceleratorKeyPressed` handler that opens the developer tools on those two keys; every other key behaves as in a release build, so the hand check (§6.4, item 10) can be done in `tauri dev`. Release builds have no developer tools. `windows-sys` gained `Win32_UI_Input_KeyboardAndMouse` for that handler's `GetKeyState`.
 
 ---
 
@@ -1296,7 +1308,7 @@ No change in M2. The File mode is dropped (D3).
 
 Each step is one commit on a short branch off `main`. Run `pnpm check` and the cargo checks before each, with no AI attribution. Track the hours actually spent, and re-plan after step 7.
 
-**Progress (26 Oct 2026).** Built on `claude/exciting-volta-qe1zoy`: steps 1–22, with the scan detector (3.14), F1 help and Alt+M. Migration 0003 was not needed: 0002 had not shipped, so `draft_approval` got its scoped columns there. **M2a is done.** The service-level full day is in `integrity.test.ts`. `apps/till/e2e/full-day.spec.ts` has a cashier ring up 31 sales by keyboard: cash, card, JazzCash, Easypaisa and Raast, split payments, line and bill discounts with PIN approvals, a zero bill, hold and resume, a void, and cash in and out. It then closes the shift and checks every figure on the report against its own sums in paisa. Last, it runs `checkRecords` on the preview's database through the dev server, as there is no records screen until M5. Step 23 (printing and the drawer) is built too: `apps/till/src/platform/printer.ts`, the print jobs and boot notice in `features/printing`, Settings → This till's printer, `scripts/fake-printer.mjs` and `e2e/printer.spec.ts`; no Rust change was needed. Left for M2b: WebView2 keys (24), the mirror folder (25), the ADRs (26) and the hardware checklist (§6.4). Step 0 (default branch → `main`) needs the owner. The **Status** column below is the plan as written, not updated per row.
+**Progress (26 Oct 2026).** Built on `claude/exciting-volta-qe1zoy`: steps 1–22, with the scan detector (3.14), F1 help and Alt+M. Migration 0003 was not needed: 0002 had not shipped, so `draft_approval` got its scoped columns there. **M2a is done.** The service-level full day is in `integrity.test.ts`. `apps/till/e2e/full-day.spec.ts` has a cashier ring up 31 sales by keyboard: cash, card, JazzCash, Easypaisa and Raast, split payments, line and bill discounts with PIN approvals, a zero bill, hold and resume, a void, and cash in and out. It then closes the shift and checks every figure on the report against its own sums in paisa. Last, it runs `checkRecords` on the preview's database through the dev server, as there is no records screen until M5. Step 23 (printing and the drawer) is built too: `apps/till/src/platform/printer.ts`, the print jobs and boot notice in `features/printing`, Settings → This till's printer, `scripts/fake-printer.mjs` and `e2e/printer.spec.ts`; no Rust change was needed. Step 24 is built: WebView2's browser keys are off in the desktop app (`src-tauri/src/webview.rs`, §8.4), still to be checked by hand on Windows 10 and 11 (§6.4, item 10). Left for M2b: the mirror folder (25), the ADRs (26) and the hardware checklist (§6.4). Step 0 (default branch → `main`) needs the owner. The **Status** column below is the plan as written, not updated per row.
 
 | #   | Step                                                                                                                                              | Est. h | Status           |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------- |

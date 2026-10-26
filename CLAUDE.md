@@ -104,6 +104,9 @@ built, and `e2e/full-day.spec.ts` checks a day's shift report against its own su
 M2b, printing (Off by default; Windows printer or Network) and the cash drawer are built:
 `apps/till/src/platform/printer.ts`, the `last_receipt` boot notice, Settings → This
 till's printer, and `scripts/fake-printer.mjs`, which `e2e/printer.spec.ts` prints to through
-the dev server (`apps/till/dev-printer-bridge.ts`, development only). Left for M2b:
-WebView2 keys, the backup mirror folder and the ADRs, then the hardware checklist in
-`docs/m2-design.md` §6.4. No printer or scanner is needed to run or test the till.
+the dev server (`apps/till/dev-printer-bridge.ts`, development only). WebView2's browser
+keys (reload, print, find, zoom, back) are off in the desktop app
+(`apps/till/src-tauri/src/webview.rs`); debug builds keep F12 for the developer tools.
+Left for M2b: the backup mirror folder and the ADRs, then the hardware checklist in
+`docs/m2-design.md` §6.4 (item 10 is the browser-key hand check). No printer or scanner is
+needed to run or test the till.

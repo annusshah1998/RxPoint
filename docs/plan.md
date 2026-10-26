@@ -93,8 +93,9 @@ Built and tested:
 M2a (a full day of sales on one till) is done: the clock warning banner, the
 scanner-speed detector, keyboard shortcuts with F1 help and a full-day browser test are
 built too. In M2b, printing and the cash drawer are built (not yet tried on a real
-printer). Still to do for M2 (M2b): WebView2 keys, the backup mirror folder, the ADRs and
-the hardware checklist once a printer and scanner arrive.
+printer), and WebView2's browser keys (F5, Ctrl+R, Ctrl+P, Ctrl+F…) are off in the desktop
+app (not yet checked by hand on Windows 10 or 11). Still to do for M2 (M2b): the backup
+mirror folder, the ADRs and the hardware checklist once a printer and scanner arrive.
 
 ## Open items carried into M2
 

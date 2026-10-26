@@ -1,9 +1,11 @@
 //! The desktop shell. Business logic lives in TypeScript; this side owns the SQLite
-//! file, backups and the receipt printer.
+//! file, backups, the receipt printer and the webview's settings.
 
 mod backup;
 mod db;
 mod printer;
+#[cfg(windows)]
+mod webview;
 
 use backup::{BackupCheck, BackupFile};
 use db::{Database, ExecResult};
@@ -152,6 +154,9 @@ pub fn run() {
                 data_dir,
                 backup_dir,
             });
+            // So a stray F5, Ctrl+R or Ctrl+P can't reload or print the page mid-sale.
+            #[cfg(windows)]
+            webview::turn_off_browser_keys(app);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
