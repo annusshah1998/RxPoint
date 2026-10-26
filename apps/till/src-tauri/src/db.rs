@@ -190,7 +190,10 @@ impl Database {
         // 2. Stage the backup beside the live file.
         let staged = sidecar(&path, ".restoring");
         fs::copy(backup, &staged).map_err(|e| format!("Could not copy the backup: {e}"))?;
-        fs::File::open(&staged)
+        // Write access: Windows refuses to sync a read-only handle.
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&staged)
             .and_then(|f| f.sync_all())
             .map_err(|e| format!("Could not copy the backup: {e}"))?;
 

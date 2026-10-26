@@ -10,7 +10,7 @@
 
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde::Serialize;
-use std::fs::{self, File};
+use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -63,8 +63,12 @@ fn partial_path(path: &Path) -> PathBuf {
     PathBuf::from(p)
 }
 
+/// Opens with write access: on Windows `sync_all` (FlushFileBuffers) is denied on a
+/// read-only handle.
 fn sync_file(path: &Path) -> Result<(), String> {
-    File::open(path)
+    OpenOptions::new()
+        .write(true)
+        .open(path)
         .and_then(|f| f.sync_all())
         .map_err(|e| format!("Could not save the backup to disk: {e}"))
 }
