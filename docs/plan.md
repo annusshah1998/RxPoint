@@ -77,6 +77,11 @@ Built and tested:
   list and reprint
 - Receipts: 80mm ESC/POS layout with a golden test and an on-screen preview; printing is
   off by default, so the till works without a printer or scanner
+- Printing (M2b): a Windows printer (RAW) or a network printer (port 9100), set per till in
+  Settings with a test page; the cash drawer opens through the printer for cash sales,
+  refunds, cash in/out and Open drawer; a failed print never blocks a sale (Retry, Show on
+  screen) and a receipt that may not have printed is asked about at the next start; tested
+  against `scripts/fake-printer.mjs`
 - Backups in the desktop app: automatic and by hand, checked after each copy, old copies
   thinned; Backups and Settings screens
 - Record checks (`checkRecords`) over a full simulated day of sales, voids and returns
@@ -87,8 +92,9 @@ Built and tested:
 
 M2a (a full day of sales on one till) is done: the clock warning banner, the
 scanner-speed detector, keyboard shortcuts with F1 help and a full-day browser test are
-built too. Still to do for M2 (M2b): printing to a real printer and the cash drawer,
-WebView2 keys, the backup mirror folder, and the ADRs.
+built too. In M2b, printing and the cash drawer are built (not yet tried on a real
+printer). Still to do for M2 (M2b): WebView2 keys, the backup mirror folder, the ADRs and
+the hardware checklist once a printer and scanner arrive.
 
 ## Open items carried into M2
 

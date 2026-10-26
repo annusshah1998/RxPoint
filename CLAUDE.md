@@ -41,7 +41,7 @@ Compliance findings (unconfirmed): `docs/compliance-pk.md`.
 apps/till/src/app/          Boot, shell, router, services context
 apps/till/src/features/     One folder per screen area (products, stock, import, setup)
 apps/till/src/ui/           Shared components (Field, Button, Card, Modal …)
-apps/till/src/platform/     SqlExecutor for desktop (Tauri) and browser preview (WASM)
+apps/till/src/platform/     SqlExecutor and printer for desktop (Tauri) and browser preview
 apps/till/src-tauri/        Rust shell: db.rs (SQLite bridge), lib.rs (commands)
 apps/till/e2e/              Playwright tests (browser preview)
 packages/core/src/          Pure rules: money, units, pricing, dates, fefo, qty-input, ids
@@ -56,6 +56,7 @@ pnpm check                 # name check, prettier, eslint, tsc, vitest — run b
 pnpm test                  # unit tests only
 pnpm test:e2e              # Playwright; locally may need CHROMIUM_PATH=/path/to/chromium
 pnpm dev                   # browser preview on :1420
+pnpm printer:fake          # pretend network printer on 127.0.0.1:9100 (dumps every job)
 pnpm tauri dev             # desktop app
 cd apps/till/src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 ```
@@ -99,6 +100,10 @@ done (see `docs/plan.md` and the build order in `docs/m2-design.md`): login, rol
 approvals, shifts, the Sale screen (the home route), batch picker, discounts,
 controlled-drug capture, split payments, hold/resume, void, returns, receipt preview,
 backups, the clock guard, the scan detector and the keyboard shortcuts with F1 help are
-built, and `e2e/full-day.spec.ts` checks a day's shift report against its own sums. Left
-for M2b: real printing and the cash drawer, WebView2 keys, the backup mirror folder and the
-ADRs. No printer or scanner is needed to run or test the till.
+built, and `e2e/full-day.spec.ts` checks a day's shift report against its own sums. In
+M2b, printing (Off by default; Windows printer or Network) and the cash drawer are built:
+`apps/till/src/platform/printer.ts`, the `last_receipt` boot notice, Settings → This
+till's printer, and `scripts/fake-printer.mjs`, which `e2e/printer.spec.ts` prints to through
+the dev server (`apps/till/dev-printer-bridge.ts`, development only). Left for M2b:
+WebView2 keys, the backup mirror folder and the ADRs, then the hardware checklist in
+`docs/m2-design.md` §6.4. No printer or scanner is needed to run or test the till.

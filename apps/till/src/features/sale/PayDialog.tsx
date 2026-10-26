@@ -18,9 +18,9 @@ import {
   type WalletProvider,
 } from '@app/core';
 import {
+  DEFAULT_DEVICE_SETTINGS,
   completeSale,
   getDeviceSettings,
-  getSaleReceiptData,
   getStoreSettings,
   grantApproval,
   planSale,
@@ -37,8 +37,8 @@ import { errorMessage, fieldErrors, isApprovalError } from '../../lib/errors';
 import { S } from '../../strings';
 import { Button, Checkbox, Field, Loading, Modal, Notice, Select, TextInput } from '../../ui';
 import { ApprovalFields, type ApprovalValue } from '../auth/ApprovalFields';
-import { ReceiptPreview } from '../receipt/ReceiptPreview';
-import { saleReceipt } from '../receipt/sale-receipt';
+import { ReceiptOutput } from '../printing/PrintStatus';
+import { loadReceipt, usePrinting, type PrintOutcome } from '../printing/printing';
 import type { SaleState } from './use-sale';
 import { useScanGuard } from './use-scan-guard';
 
@@ -51,7 +51,12 @@ type Stage =
       need: { kind: 'sale.discount' | 'sale.controlled'; lineKey: string; needBp?: number };
     }
   | { kind: 'tender' }
-  | { kind: 'done'; result: CompletedSale; receipt: ReceiptDocument | null };
+  | {
+      kind: 'done';
+      result: CompletedSale;
+      receipt: ReceiptDocument | null;
+      printed: PrintOutcome;
+    };
 
 interface OtherTender {
   id: number;
@@ -66,6 +71,7 @@ const noApproval: ApprovalValue = { userId: '', pin: '' };
 
 export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => void }) {
   const { ctx } = useServices();
+  const printing = usePrinting();
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['settings'], queryFn: () => getStoreSettings(ctx) });
   const [stage, setStage] = useState<Stage>({ kind: 'checking' });
@@ -168,17 +174,25 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
         tenders: tenders(),
         expectedTotal: total,
       });
+      // The sale is saved. Nothing from here on may undo or hold it up: a receipt that
+      // can't be built or printed is reported, and the boot notice asks about it later.
+      let device = DEFAULT_DEVICE_SETTINGS;
       let receipt: ReceiptDocument | null = null;
       try {
-        const [data, device] = await Promise.all([
-          getSaleReceiptData(ctx, result.saleId),
-          getDeviceSettings(ctx),
-        ]);
-        receipt = saleReceipt(data, { width: device.printer.columns, timeZone: ctx.timeZone });
+        device = await getDeviceSettings(ctx);
+        receipt = await loadReceipt(ctx, { docType: 'sale', docId: result.saleId }, device);
       } catch (err) {
         console.error(err);
       }
-      setStage({ kind: 'done', result, receipt });
+      // Printing runs in the background, after the change panel is up.
+      const printed = printing.afterDocument({
+        doc: receipt,
+        settings: device,
+        cashMoved: result.openDrawer,
+        ref: { docType: 'sale', docId: result.saleId },
+        title: S.printer.receiptTitle(result.invoiceNo),
+      });
+      setStage({ kind: 'done', result, receipt, printed });
       await queryClient.invalidateQueries();
     } catch (err) {
       if (
@@ -598,11 +612,11 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
           <p>
             <strong>{S.pay.invoice(stage.result.invoiceNo)}</strong>
           </p>
-          <Notice tone="info">
-            {S.pay.printingOff}
-            {stage.result.openDrawer ? ` ${S.pay.openDrawer}` : ''}
-          </Notice>
-          {stage.receipt && <ReceiptPreview doc={stage.receipt} />}
+          <ReceiptOutput
+            doc={stage.receipt}
+            outcome={stage.printed}
+            title={S.printer.receiptTitle(stage.result.invoiceNo)}
+          />
           <div className="form-actions">
             <Button variant="primary" autoFocus onClick={() => void newSale()}>
               {S.pay.newSale}

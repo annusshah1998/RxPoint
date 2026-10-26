@@ -1,10 +1,9 @@
 import { can, formatMoney, localTime } from '@app/core';
 import {
+  DEFAULT_DEVICE_SETTINGS,
   describeRefund,
   getDeviceSettings,
-  getReturnReceiptData,
   getSale,
-  getSaleReceiptData,
   listSales,
   recordReprint,
   voidSale,
@@ -32,9 +31,8 @@ import {
   TextInput,
 } from '../../ui';
 import { ApprovalFields, type ApprovalValue } from '../auth/ApprovalFields';
-import { ReceiptPreview } from '../receipt/ReceiptPreview';
-import { returnReceipt } from '../receipt/return-receipt';
-import { saleReceipt } from '../receipt/sale-receipt';
+import { ReceiptOutput } from '../printing/PrintStatus';
+import { loadReceipt, usePrinting, type PrintOutcome, type ReceiptRef } from '../printing/printing';
 import { ReturnForm } from './ReturnForm';
 
 export function SalesScreen() {
@@ -104,44 +102,82 @@ export function SalesScreen() {
   );
 }
 
+/** A receipt on screen or on paper, with how printing it went. */
+interface Output {
+  doc: ReceiptDocument | null;
+  printed: PrintOutcome;
+  title: string;
+}
+
 function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }) {
   const { ctx, store } = useServices();
+  const printing = usePrinting();
   const queryClient = useQueryClient();
   const sale = useQuery({ queryKey: ['sale', saleId], queryFn: () => getSale(ctx, saleId) });
-  const [receipt, setReceipt] = useState<ReceiptDocument | null>(null);
+  const device = useQuery({ queryKey: ['device-settings'], queryFn: () => getDeviceSettings(ctx) });
+  const [receipt, setReceipt] = useState<Output | null>(null);
   const [voiding, setVoiding] = useState(false);
-  const [voided, setVoided] = useState<VoidResult | null>(null);
+  const [voided, setVoided] = useState<{ result: VoidResult; output: Output } | null>(null);
   const [returning, setReturning] = useState(false);
-  const [returned, setReturned] = useState<{
-    result: ReturnResult;
-    receipt: ReceiptDocument | null;
-  } | null>(null);
+  const [returned, setReturned] = useState<{ result: ReturnResult; output: Output } | null>(null);
   const [error, setError] = useState<unknown>(null);
 
-  async function finishReturn(result: ReturnResult) {
-    let receiptDoc: ReceiptDocument | null = null;
+  /**
+   * After a void or return is saved: its receipt, printed (with the drawer pulse when cash
+   * goes back) or shown. A receipt that can't be built never undoes what was saved.
+   */
+  async function afterSaved(
+    ref: ReceiptRef & { saleId?: string },
+    number: string,
+    cashMoved: boolean,
+  ): Promise<Output> {
+    let settings = DEFAULT_DEVICE_SETTINGS;
+    let doc: ReceiptDocument | null = null;
     try {
-      const [data, device] = await Promise.all([
-        getReturnReceiptData(ctx, result.returnId),
-        getDeviceSettings(ctx),
-      ]);
-      receiptDoc = returnReceipt(data, { width: device.printer.columns, timeZone: ctx.timeZone });
+      settings = await getDeviceSettings(ctx);
+      doc = await loadReceipt(ctx, ref, settings);
     } catch (err) {
       setError(err);
     }
-    setReturned({ result, receipt: receiptDoc });
+    const title = S.printer.receiptTitle(number);
+    const printed = printing.afterDocument({
+      doc,
+      settings,
+      cashMoved,
+      ref: { docType: ref.docType, docId: ref.docId },
+      title,
+    });
+    return { doc, printed, title };
+  }
+
+  async function finishReturn(result: ReturnResult) {
+    const output = await afterSaved(
+      { docType: 'return', docId: result.returnId },
+      result.returnNo,
+      result.openDrawer,
+    );
+    setReturned({ result, output });
     setReturning(false);
+    await queryClient.invalidateQueries();
+  }
+
+  async function finishVoid(result: VoidResult) {
+    const output = await afterSaved(
+      { docType: 'void', docId: result.voidId, saleId },
+      result.invoiceNo,
+      result.openDrawer,
+    );
+    setVoided({ result, output });
     await queryClient.invalidateQueries();
   }
 
   async function showReceipt(view: SaleView) {
     try {
       await recordReprint(ctx, view.id);
-      const [data, device] = await Promise.all([
-        getSaleReceiptData(ctx, view.id, { copy: 'reprint' }),
-        getDeviceSettings(ctx),
-      ]);
-      setReceipt(saleReceipt(data, { width: device.printer.columns, timeZone: ctx.timeZone }));
+      const settings = await getDeviceSettings(ctx);
+      const doc = await loadReceipt(ctx, { docType: 'sale', docId: view.id }, settings, 'reprint');
+      const title = S.printer.receiptTitle(view.invoiceNo);
+      setReceipt({ doc, printed: printing.reprint(doc, settings, title), title });
     } catch (err) {
       setError(err);
     }
@@ -160,7 +196,7 @@ function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }
               <li key={step}>{step}</li>
             ))}
           </ul>
-          {returned.receipt && <ReceiptPreview doc={returned.receipt} />}
+          <ReceiptOutput {...outputProps(returned.output)} />
           <Button variant="primary" onClick={onClose}>
             {S.common.close}
           </Button>
@@ -175,10 +211,11 @@ function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }
         <>
           <Notice tone="good">{S.sales.voidDone}</Notice>
           <ul>
-            {describeRefund(voided).map((step) => (
+            {describeRefund(voided.result).map((step) => (
               <li key={step}>{step}</li>
             ))}
           </ul>
+          <ReceiptOutput {...outputProps(voided.output)} />
           <Button variant="primary" onClick={onClose}>
             {S.common.close}
           </Button>
@@ -186,10 +223,7 @@ function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }
       ) : voiding ? (
         <VoidForm
           view={view}
-          onDone={async (result) => {
-            setVoided(result);
-            await queryClient.invalidateQueries();
-          }}
+          onDone={(result) => void finishVoid(result)}
           onCancel={() => setVoiding(false)}
         />
       ) : (
@@ -228,9 +262,13 @@ function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }
               </ul>
             </>
           )}
-          {receipt && <ReceiptPreview doc={receipt} />}
+          {receipt && <ReceiptOutput key={receipt.printed.receiptJob} {...outputProps(receipt)} />}
           <div className="form-actions">
-            <Button onClick={() => void showReceipt(view)}>{S.sales.reprint}</Button>
+            <Button onClick={() => void showReceipt(view)}>
+              {(device.data?.printer.mode ?? 'off') === 'off'
+                ? S.sales.reprint
+                : S.sales.reprintPrint}
+            </Button>
             {view.canVoid && can(store.userRole, 'sale.sell') && (
               <Button variant="danger" onClick={() => setVoiding(true)}>
                 {S.sales.void}
@@ -248,6 +286,10 @@ function SaleDetail({ saleId, onClose }: { saleId: string; onClose: () => void }
       )}
     </Modal>
   );
+}
+
+function outputProps(output: Output) {
+  return { doc: output.doc, outcome: output.printed, title: output.title };
 }
 
 function VoidForm({

@@ -1,16 +1,40 @@
-import { CASH_CATEGORIES, recordCashMovement, recordNoSale } from '@app/db';
+import { CASH_CATEGORIES, getDeviceSettings, recordCashMovement, recordNoSale } from '@app/db';
+import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { useAction } from '../../app/services';
+import { useAction, useServices } from '../../app/services';
 import { approvalNeeded, errorMessage, fieldErrors, isApprovalError } from '../../lib/errors';
 import { readMoney } from '../../lib/money-input';
 import { S } from '../../strings';
 import { Button, Field, Modal, Notice, Select, TextInput } from '../../ui';
+import { drawerWorks } from '../../platform/printer';
 import { ApprovalFields, type ApprovalValue } from '../auth/ApprovalFields';
+import { usePrinting } from '../printing/printing';
 
 type CashKind = 'pay_in' | 'pay_out';
 
 const noApproval: ApprovalValue = { userId: '', pin: '' };
 const defaultCategory = (kind: CashKind) => (kind === 'pay_in' ? 'change' : 'expense');
+
+/**
+ * Opens the drawer through the printer once the cash movement or no-sale is saved, when
+ * this till has one set up. It runs in the background: a failure shows in the printer
+ * problems bar with Retry, and never undoes what was recorded.
+ */
+function useKickDrawer() {
+  const printing = usePrinting();
+  return () =>
+    void printing
+      .settings()
+      .then((settings) => printing.openDrawer(settings))
+      .catch(console.error);
+}
+
+/** Whether the drawer opens by itself here; otherwise staff open it by hand. */
+function useDrawerWorks(): boolean {
+  const { ctx } = useServices();
+  const device = useQuery({ queryKey: ['device-settings'], queryFn: () => getDeviceSettings(ctx) });
+  return device.data ? drawerWorks(device.data) : false;
+}
 
 /**
  * Cash put into or taken out of the drawer. `kind` null lets the cashier choose (Alt+C on
@@ -31,7 +55,13 @@ export function CashMovementDialog({
   });
   const [amountError, setAmountError] = useState<string>();
   const [approval, setApproval] = useState<ApprovalValue>(noApproval);
-  const record = useAction(recordCashMovement, { onSuccess: onClose });
+  const kick = useKickDrawer();
+  const record = useAction(recordCashMovement, {
+    onSuccess: () => {
+      kick();
+      onClose();
+    },
+  });
   const [needs, setNeeds] = useState<ReturnType<typeof approvalNeeded>>(null);
 
   function submit(e: FormEvent) {
@@ -131,12 +161,23 @@ export function CashMovementDialog({
   );
 }
 
-/** Records opening the drawer without a sale (the drawer itself is opened by hand for now). */
+/**
+ * Opens the drawer without a sale (Alt+D): the reason, and a PIN when needed, are logged
+ * first (`drawer.no_sale`); then the drawer opens through the printer, or by hand when
+ * none is set up.
+ */
 export function NoSaleDialog({ onClose }: { onClose: () => void }) {
   const [reason, setReason] = useState('');
   const [approval, setApproval] = useState<ApprovalValue>(noApproval);
   const [needs, setNeeds] = useState<ReturnType<typeof approvalNeeded>>(null);
-  const record = useAction(recordNoSale, { onSuccess: onClose });
+  const kick = useKickDrawer();
+  const works = useDrawerWorks();
+  const record = useAction(recordNoSale, {
+    onSuccess: () => {
+      kick();
+      onClose();
+    },
+  });
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -156,6 +197,7 @@ export function NoSaleDialog({ onClose }: { onClose: () => void }) {
         <Field label={S.shift.reason} error={errors.reason}>
           <TextInput value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
         </Field>
+        {!works && <p className="muted">{S.shift.noSaleByHand}</p>}
         {needs && (
           <ApprovalFields
             permission={needs}

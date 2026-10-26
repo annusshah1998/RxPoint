@@ -20,6 +20,7 @@ import { RecoveryCodeScreen } from '../features/auth/RecoveryCodeScreen';
 import { SetupScreen } from '../features/setup/SetupScreen';
 import { errorMessage } from '../lib/errors';
 import { createBackupPort, createExecutor, currentPlatform, type Platform } from '../platform';
+import { createPrinterPort, type PrinterPort } from '../platform/printer';
 import { S } from '../strings';
 import { Notice } from '../ui';
 import { useBrowserKeyGuard } from './keys';
@@ -48,6 +49,7 @@ interface Opened {
   ctx: ServiceContext;
   platform: Platform;
   backupPort: BackupPort | null;
+  printer: PrinterPort;
 }
 
 // Opened once per page load, even if React mounts this component twice in development.
@@ -60,6 +62,7 @@ async function open(): Promise<Opened> {
     ctx: createServiceContext(db, { buildTime: new Date(__BUILD_TIME__) }),
     platform,
     backupPort: await createBackupPort(platform),
+    printer: createPrinterPort(platform),
   };
 }
 
@@ -104,7 +107,14 @@ export function Boot() {
         };
         setState({
           status: 'ready',
-          services: { ctx: app, store, platform: base.platform, lock, backupPort: base.backupPort },
+          services: {
+            ctx: app,
+            store,
+            platform: base.platform,
+            lock,
+            backupPort: base.backupPort,
+            printer: base.printer,
+          },
         });
       } catch (error) {
         setState({ status: 'failed', message: errorMessage(error) });

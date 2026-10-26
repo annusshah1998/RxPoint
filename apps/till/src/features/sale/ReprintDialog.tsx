@@ -1,26 +1,27 @@
-import { getDeviceSettings, getLastSale, getSaleReceiptData, recordReprint } from '@app/db';
+import { getDeviceSettings, getLastSale, recordReprint } from '@app/db';
 import type { ReceiptDocument } from '@app/receipt';
 import { useEffect, useRef, useState } from 'react';
 import { useServices } from '../../app/services';
 import { errorMessage } from '../../lib/errors';
 import { S } from '../../strings';
 import { Button, Loading, Modal, Notice } from '../../ui';
-import { ReceiptPreview } from '../receipt/ReceiptPreview';
-import { saleReceipt } from '../receipt/sale-receipt';
+import { ReceiptOutput } from '../printing/PrintStatus';
+import { loadReceipt, usePrinting, type PrintOutcome } from '../printing/printing';
 
 type State =
   | { kind: 'loading' }
   | { kind: 'none' }
-  | { kind: 'shown'; invoiceNo: string; doc: ReceiptDocument }
+  | { kind: 'shown'; invoiceNo: string; doc: ReceiptDocument; printed: PrintOutcome }
   | { kind: 'failed'; error: unknown };
 
 /**
  * Ctrl+P: the receipt of this till's last sale again, marked REPRINT and logged, the same
- * way as "Show receipt again" on the Sales screen. Printing is not built yet, so it is
- * shown on screen.
+ * way as "Show receipt again" on the Sales screen. It prints when printing is on (without
+ * opening the drawer) and shows on screen when printing is off.
  */
 export function ReprintDialog({ onClose }: { onClose: () => void }) {
   const { ctx } = useServices();
+  const printing = usePrinting();
   const [state, setState] = useState<State>({ kind: 'loading' });
   // Once per opening, so a re-render (or React's development double run) logs one reprint.
   const started = useRef(false);
@@ -36,17 +37,15 @@ export function ReprintDialog({ onClose }: { onClose: () => void }) {
           return;
         }
         await recordReprint(ctx, last.id);
-        const [data, device] = await Promise.all([
-          getSaleReceiptData(ctx, last.id, { copy: 'reprint' }),
-          getDeviceSettings(ctx),
-        ]);
-        const doc = saleReceipt(data, { width: device.printer.columns, timeZone: ctx.timeZone });
-        setState({ kind: 'shown', invoiceNo: last.invoiceNo, doc });
+        const device = await getDeviceSettings(ctx);
+        const doc = await loadReceipt(ctx, { docType: 'sale', docId: last.id }, device, 'reprint');
+        const printed = printing.reprint(doc, device, S.printer.receiptTitle(last.invoiceNo));
+        setState({ kind: 'shown', invoiceNo: last.invoiceNo, doc, printed });
       } catch (error) {
         setState({ kind: 'failed', error });
       }
     })();
-  }, [ctx]);
+  }, [ctx, printing]);
 
   return (
     <Modal title={S.sale.reprintLast} onClose={onClose}>
@@ -58,8 +57,11 @@ export function ReprintDialog({ onClose }: { onClose: () => void }) {
           <p>
             <strong>{S.pay.invoice(state.invoiceNo)}</strong>
           </p>
-          <Notice tone="info">{S.pay.printingOff}</Notice>
-          <ReceiptPreview doc={state.doc} />
+          <ReceiptOutput
+            doc={state.doc}
+            outcome={state.printed}
+            title={S.printer.receiptTitle(state.invoiceNo)}
+          />
         </>
       )}
       {state.kind !== 'loading' && (

@@ -28,7 +28,7 @@ import {
 import { z } from 'zod';
 import { timestamp, today, type AppContext } from '../context';
 import type { Db } from '../executor';
-import { META, getMeta, setMeta } from '../meta';
+import { META, setMeta } from '../meta';
 import { audit, insertRow, type Tx } from '../writes';
 import { parseCart } from './drafts';
 import {
@@ -900,17 +900,5 @@ async function auditSale(
   }
   if (build.cart.removed.length > 0) {
     await entry('sale.lines_removed', { removed: build.cart.removed });
-  }
-}
-
-/** The last receipt that was meant to print, and whether it did. */
-export async function getLastReceipt(
-  ctx: AppContext,
-): Promise<{ docType: string; docId: string; status: string } | null> {
-  const raw = await getMeta(ctx.db, META.lastReceipt);
-  try {
-    return raw ? (JSON.parse(raw) as { docType: string; docId: string; status: string }) : null;
-  } catch {
-    return null;
   }
 }

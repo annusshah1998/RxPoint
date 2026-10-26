@@ -175,6 +175,21 @@ code {
 .clock-banner .btn {
   flex-shrink: 0;
 }
+/* The boot notice ("may not have printed") and print failures nobody is looking at. */
+.receipt-notice,
+.print-problems {
+  padding: 8px 24px 0;
+}
+.receipt-notice .notice,
+.print-problems .notice {
+  margin-bottom: 8px;
+}
+.notice-actions {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
 .clock-block {
   display: flex;
   align-items: center;
@@ -290,6 +305,12 @@ code {
 }
 .row > .field {
   flex: 1 1 160px;
+}
+.row > .field.field-short {
+  flex: 0 1 320px;
+}
+.checkbox-row {
+  margin-bottom: 8px;
 }
 .form-grid,
 .detail-grid {

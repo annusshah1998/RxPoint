@@ -7,10 +7,10 @@ cashiers) and describes the till as it is built today.
 RxPoint is a working name and will change. The screenshots come from a test pharmacy
 ("Shifa Pharmacy") with the sample stock list, so the names and prices are made up.
 
-**Not built yet:** receipt printing and the cash drawer (receipts are shown on screen, and
-the drawer is opened by hand), khata (customer credit), purchasing from distributors and
-reports. No printer or scanner is needed to use the till: typing a barcode and pressing
-Enter works the same as scanning it.
+**Not built yet:** khata (customer credit), purchasing from distributors and reports.
+Printing is off until a printer is set up in **Settings → This till's printer**; until then
+receipts are shown on screen and the drawer is opened by hand. No printer or scanner is
+needed to use the till: typing a barcode and pressing Enter works the same as scanning it.
 
 ## Contents
 
@@ -412,9 +412,16 @@ the pack; otherwise **Cancel** and remove the line.
 
 ![Check the packs are in date](images/pay-in-date.png)
 
-**Sale complete:** the change is shown in large type with the invoice number and the
-receipt. Printing is off for now, so the receipt is shown on screen; open the drawer by
-hand. Press Enter (or **New sale**) to start the next sale.
+**Sale complete:** the change is shown in large type with the invoice number. With
+printing off, the receipt is shown on screen; open the drawer by hand. With a printer set
+up, the receipt prints and the drawer opens for cash. Press Enter (or **New sale**) to
+start the next sale; you don't have to wait for the printer.
+
+**If the receipt doesn't print**, the sale is still saved. The panel says why ("Printer not
+reachable at …") with **Retry** and **Show on screen**. If you have already moved on, the
+message stays at the top of the screen. If the till was switched off before the receipt
+printed (a power cut), the next login asks "Receipt for T1-000123 may not have printed" with
+**Print** and **Skip**.
 
 ![Sale complete with receipt](images/sale-done.png)
 
@@ -467,8 +474,9 @@ Click a sale to see its lines and what you can do with it:
 
 ![Sale detail](images/sale-detail.png)
 
-- **Show receipt again** shows the receipt marked `*** REPRINT ***`. For the last sale,
-  **Ctrl+P** on the Sale screen does the same.
+- **Show receipt again** shows the receipt marked `*** REPRINT ***` (with a printer set
+  up, **Print receipt again** prints it). For the last sale, **Ctrl+P** on the Sale screen
+  does the same. Reprints never open the drawer.
 - **Void sale** cancels the whole sale.
 - **Return items** takes some or all items back.
 
@@ -624,6 +632,24 @@ The owner sets these for the whole pharmacy.
 
 Every change to a setting is recorded with who made it.
 
+### This till's printer
+
+These are for this computer only, so each till can have its own printer.
+
+| Setting                              | Default                       | What it does                                                                                         |
+| ------------------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Printing                             | Off (show receipts on screen) | **Windows printer** (installed in Windows; the list starts with the default) or **Network printer**. |
+| IP address / Port                    | — / 9100                      | For a network printer: the address on its self-test page.                                            |
+| Characters per line                  | 48 (80 mm paper)              | Print a test page: if the ruler doesn't fit on one line, choose 42. 32 is for 58 mm paper.           |
+| Cut the paper after each receipt     | On                            | Printers without a cutter ignore it.                                                                 |
+| Print every receipt automatically    | On                            | When off, the receipt shows on screen with a **Print receipt** button.                               |
+| Cash drawer plugged into the printer | Off                           | Opens the drawer for cash sales and refunds, cash in/out and **Open drawer**.                        |
+| Drawer pin                           | Pin 2                         | If **Test drawer** does nothing, try pin 5.                                                          |
+
+**Print test page** prints a ruler, bold and large text, a barcode and the cut (with printing
+off it shows the page on screen). **Test drawer** opens the drawer with the settings on
+screen, before you save them; it is recorded.
+
 ## 16. Backups
 
 Backups run in the desktop app (the browser preview keeps its data in the browser only).
@@ -701,6 +727,8 @@ says so. Restoring from a backup is coming in a later version.
 | There isn't that much cash in the drawer                | The cash out or refund is more than the drawer should hold.                            |
 | Hold or finish the sale in progress first               | Before closing the shift, complete or hold the sale on the Sale screen.                |
 | This sale is from a closed shift — use a return         | Voids are only for the current shift. Use **Return items**.                            |
+| Receipt not printed: Printer not reachable at …         | Check the printer is on, has paper and is plugged in, then **Retry**.                  |
+| Receipt for T1-… may not have printed                   | The till stopped before the printer answered. **Print** it, or **Skip** if it printed. |
 | Part of this sale was returned — use a return           | Return the rest instead of voiding.                                                    |
 | Is today really …? The last record was … days ago.      | Check the PC's date. Confirm only if it is right.                                      |
 

@@ -12,6 +12,7 @@ import { SalesScreen } from '../features/sales/SalesScreen';
 import { BackupsScreen } from '../features/backups/BackupsScreen';
 import { useBackupSchedule } from '../features/backups/use-backup-schedule';
 import { ClockBanner, ClockBlockScreen, useClockStatus } from '../features/clock/ClockGuard';
+import { PrintProblems, ReceiptNotice } from '../features/printing/PrintStatus';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { ShiftScreen } from '../features/shift/ShiftScreen';
 import { StaffScreen } from '../features/staff/StaffScreen';
@@ -179,6 +180,8 @@ export function Shell() {
       <main className="main">
         {platform === 'browser' && <PreviewBanner />}
         {clock.data && <ClockBanner status={clock.data} />}
+        <ReceiptNotice />
+        <PrintProblems />
         <Screen route={route} canSell={can(store.userRole, 'sale.sell')} />
       </main>
       {help && (

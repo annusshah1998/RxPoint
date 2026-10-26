@@ -1,9 +1,11 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { devPrinterBridge } from './dev-printer-bridge';
 
 // Tauri loads the dev server from a fixed port.
 export default defineConfig({
-  plugins: [react()],
+  // The bridge lets the browser preview print in Network mode (development only).
+  plugins: [react(), devPrinterBridge()],
   // When this build was made: the clock guard treats an earlier PC date as wrong.
   define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   clearScreen: false,

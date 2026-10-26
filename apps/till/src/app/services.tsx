@@ -2,6 +2,7 @@ import type { AppContext, BackupPort, StoreInfo } from '@app/db';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, type ReactNode } from 'react';
 import type { Platform } from '../platform';
+import type { PrinterPort } from '../platform/printer';
 
 export interface Services {
   ctx: AppContext;
@@ -11,6 +12,8 @@ export interface Services {
   lock: () => Promise<void>;
   /** Null in the browser preview: backups run in the desktop app. */
   backupPort: BackupPort | null;
+  /** The receipt printer (Off by default: then nothing is sent). */
+  printer: PrinterPort;
 }
 
 const ServicesContext = createContext<Services | null>(null);
