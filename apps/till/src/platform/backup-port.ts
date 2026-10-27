@@ -13,6 +13,8 @@ export function createTauriBackupPort(): BackupPort {
     verify: (name) => invoke<BackupCheck>('backup_verify', { name }).catch(fail),
     list: (dir) => invoke<BackupFile[]>('backup_list', { dir: dir ?? null }).catch(fail),
     remove: (name, dir) => invoke<void>('backup_delete', { name, dir: dir ?? null }).catch(fail),
+    copyTo: (name, destDir) => invoke<void>('backup_copy', { name, destDir }).catch(fail),
+    checkFolder: (dir) => invoke<void>('folder_check', { path: dir }).catch(fail),
   };
 }
 

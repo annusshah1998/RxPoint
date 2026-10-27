@@ -9,6 +9,7 @@ import { ProductEditScreen } from '../features/products/ProductEditScreen';
 import { ProductsScreen } from '../features/products/ProductsScreen';
 import { SaleScreen } from '../features/sale/SaleScreen';
 import { SalesScreen } from '../features/sales/SalesScreen';
+import { BackupBadges } from '../features/backups/BackupBadges';
 import { BackupsScreen } from '../features/backups/BackupsScreen';
 import { useBackupSchedule } from '../features/backups/use-backup-schedule';
 import { ClockBanner, ClockBlockScreen, useClockStatus } from '../features/clock/ClockGuard';
@@ -152,6 +153,7 @@ export function Shell() {
             </a>
           ))}
         </nav>
+        <BackupBadges canOpen={can(store.userRole, 'backup.run')} />
         <div className="sidebar-footer">
           <div>
             {S.nav.till} {store.tillCode} · {store.userName}

@@ -12,7 +12,7 @@ use db::{Database, ExecResult};
 use printer::{PrintTarget, PrinterInfo};
 use serde::Serialize;
 use serde_json::Value;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::async_runtime::spawn_blocking;
 use tauri::{Manager, State};
 
@@ -89,14 +89,23 @@ async fn backup_verify(paths: State<'_, Paths>, name: String) -> Result<BackupCh
     blocking(move || backup::verify(&path)).await
 }
 
+/// The backups folder, or another folder the person typed (the mirror, e.g. a USB
+/// drive), which must exist (`backup::other_dir`).
+fn folder(backups: &Path, dir: Option<&str>) -> Result<PathBuf, String> {
+    dir.map_or_else(
+        || Ok(backups.to_path_buf()),
+        |d| backup::other_dir(d, backups),
+    )
+}
+
 /// Lists the backups folder, or another folder (e.g. the copy on a USB drive).
 #[tauri::command]
 async fn backup_list(
     paths: State<'_, Paths>,
     dir: Option<String>,
 ) -> Result<Vec<BackupFile>, String> {
-    let dir = dir.map_or_else(|| paths.backup_dir.clone(), PathBuf::from);
-    blocking(move || backup::list(&dir)).await
+    let backups = paths.backup_dir.clone();
+    blocking(move || backup::list(&folder(&backups, dir.as_deref())?)).await
 }
 
 #[tauri::command]
@@ -105,8 +114,8 @@ async fn backup_delete(
     name: String,
     dir: Option<String>,
 ) -> Result<(), String> {
-    let dir = dir.map_or_else(|| paths.backup_dir.clone(), PathBuf::from);
-    blocking(move || backup::delete(&dir, &name)).await
+    let backups = paths.backup_dir.clone();
+    blocking(move || backup::delete(&folder(&backups, dir.as_deref())?, &name)).await
 }
 
 #[tauri::command]
@@ -115,13 +124,19 @@ async fn backup_copy(
     name: String,
     dest_dir: String,
 ) -> Result<(), String> {
-    let dir = paths.backup_dir.clone();
-    blocking(move || backup::copy_to(&dir, &name, &PathBuf::from(dest_dir))).await
+    let backups = paths.backup_dir.clone();
+    blocking(move || {
+        let dest = backup::other_dir(&dest_dir, &backups)?;
+        backup::copy_to(&backups, &name, &dest)
+    })
+    .await
 }
 
+/// [Test folder]: creates the folder on a connected drive and checks it can be written.
 #[tauri::command]
-async fn folder_check(path: String) -> Result<(), String> {
-    blocking(move || backup::check_folder(&PathBuf::from(path))).await
+async fn folder_check(paths: State<'_, Paths>, path: String) -> Result<(), String> {
+    let backups = paths.backup_dir.clone();
+    blocking(move || backup::prepare_folder(&path, &backups).map(|_| ())).await
 }
 
 /// Replaces the live database with a backup (after saving a safety copy).

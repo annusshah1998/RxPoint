@@ -132,6 +132,8 @@ export interface BackupLogTable {
   size_bytes: number | null;
   outbox_seq: number | null;
   mirror_status: 'none' | 'ok' | 'failed';
+  /** Why the copy to the mirror folder failed (0003); null unless mirror_status is 'failed'. */
+  mirror_error: string | null;
   error: string | null;
   started_at: string;
   finished_at: string;

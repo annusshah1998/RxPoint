@@ -94,8 +94,12 @@ M2a (a full day of sales on one till) is done: the clock warning banner, the
 scanner-speed detector, keyboard shortcuts with F1 help and a full-day browser test are
 built too. In M2b, printing and the cash drawer are built (not yet tried on a real
 printer), and WebView2's browser keys (F5, Ctrl+R, Ctrl+P, Ctrl+F…) are off in the desktop
-app (not yet checked by hand on Windows 10 or 11). Still to do for M2 (M2b): the backup
-mirror folder, the ADRs and the hardware checklist once a printer and scanner arrive.
+app (not yet checked by hand on Windows 10 or 11). Each backup is also copied to a
+backup drive (a USB stick or a second drive, set per till in Settings → Backups); a
+missing drive never stops a backup or a sale, and a badge appears when nothing has been
+copied for 3 days. The Backups screen can check any backup file. Still to do for M2 (M2b):
+the ADRs and the hardware checklist (with a USB stick test) once a printer and scanner
+arrive.
 
 ## Open items carried into M2
 

@@ -6,12 +6,14 @@
 //! disk, integrity-checked, and only then renamed to its final name.
 //!
 //! Commands take file NAMES (checked by `check_name`), never paths, for files inside
-//! the backups folder.
+//! the backups folder. A second folder (the mirror: a USB stick or another drive) is
+//! given as a path the person typed; `other_dir` and `prepare_folder` check it.
 
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde::Serialize;
 use std::fs::{self, OpenOptions};
-use std::path::{Path, PathBuf};
+use std::io::{ErrorKind, Write};
+use std::path::{Component, Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -223,9 +225,11 @@ pub fn delete(dir: &Path, name: &str) -> Result<(), String> {
 }
 
 /// Copies a backup to another folder (e.g. a USB drive), safely: partial file, sync, rename.
+/// `dest_dir` must already be checked by `other_dir`; it is never created here.
 pub fn copy_to(dir: &Path, name: &str, dest_dir: &Path) -> Result<(), String> {
     let source = path_in(dir, name)?;
-    fs::create_dir_all(dest_dir).map_err(|e| format!("Could not use that folder: {e}"))?;
+    // A stick pulled out mid-copy leaves a .partial behind; tidy those first.
+    cleanup(dest_dir);
     let target = dest_dir.join(name);
     let partial = partial_path(&target);
     fs::copy(&source, &partial).map_err(|e| format!("Could not copy the backup: {e}"))?;
@@ -233,22 +237,100 @@ pub fn copy_to(dir: &Path, name: &str, dest_dir: &Path) -> Result<(), String> {
     fs::rename(&partial, &target).map_err(|e| format!("Could not finish the copy: {e}"))
 }
 
-/// Checks that a folder exists and can be written to.
-pub fn check_folder(dir: &Path) -> Result<(), String> {
-    fs::create_dir_all(dir).map_err(|e| format!("Could not use that folder: {e}"))?;
-    let probe = dir.join(".write-test");
-    fs::write(&probe, b"ok")
-        .and_then(|_| sync_file(&probe).map_err(std::io::Error::other))
-        .map_err(|e| format!("Cannot write to that folder: {e}"))?;
-    let _ = fs::remove_file(&probe);
-    Ok(())
+/// The drive part of a full path: `E:\` on Windows, `\\server\share\` for a network
+/// share, `/` elsewhere.
+fn drive_root(path: &Path) -> Option<PathBuf> {
+    let mut root = PathBuf::new();
+    for part in path.components() {
+        match part {
+            Component::Prefix(_) | Component::RootDir => root.push(part.as_os_str()),
+            _ => break,
+        }
+    }
+    (!root.as_os_str().is_empty()).then_some(root)
 }
 
-/// Removes leftovers from interrupted backups.
+/// A folder path as typed: it must be a full path on a drive that is connected.
+fn typed_folder(path: &str) -> Result<PathBuf, String> {
+    let path = path.trim();
+    if path.is_empty() {
+        return Err("Type the folder's full path, such as E:\\TillBackups".into());
+    }
+    let typed = PathBuf::from(path);
+    if !typed.is_absolute() {
+        return Err(format!(
+            "Type the folder's full path, such as E:\\TillBackups (not {path})"
+        ));
+    }
+    if let Some(root) = drive_root(&typed) {
+        if !root.exists() {
+            return Err(format!(
+                "The backup drive {} is not connected",
+                root.display()
+            ));
+        }
+    }
+    Ok(typed)
+}
+
+/// A folder outside the backups folder (the mirror), as the person typed it. It must be a
+/// full path to an existing folder; the result is canonicalised, so `..` and links can't
+/// lead somewhere else, and it can't be the backups folder or inside it.
+pub fn other_dir(path: &str, backups: &Path) -> Result<PathBuf, String> {
+    let typed = typed_folder(path)?;
+    let shown = typed.display();
+    match fs::metadata(&typed) {
+        Ok(meta) if meta.is_dir() => {}
+        Ok(_) => return Err(format!("{shown} is a file, not a folder")),
+        Err(e) if e.kind() == ErrorKind::NotFound => {
+            return Err(format!("The folder {shown} does not exist"))
+        }
+        Err(e) => return Err(format!("Could not open the folder {shown}: {e}")),
+    }
+    let dir =
+        fs::canonicalize(&typed).map_err(|e| format!("Could not open the folder {shown}: {e}"))?;
+    if fs::canonicalize(backups).is_ok_and(|own| dir.starts_with(own)) {
+        return Err(
+            "That is the till's own backups folder. Choose a USB stick or another drive.".into(),
+        );
+    }
+    Ok(dir)
+}
+
+/// Gets a mirror folder ready ([Test folder]): creates it if the drive is connected but
+/// the folder is missing, then checks that a file can be written and synced there.
+pub fn prepare_folder(path: &str, backups: &Path) -> Result<PathBuf, String> {
+    let typed = typed_folder(path)?;
+    if !typed.exists() {
+        fs::create_dir_all(&typed)
+            .map_err(|e| format!("Could not create the folder {}: {e}", typed.display()))?;
+    }
+    let dir = other_dir(path, backups)?;
+    let probe = dir.join(".write-test");
+    let written = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&probe)
+        .and_then(|mut f| {
+            f.write_all(b"ok")?;
+            f.sync_all()
+        });
+    let _ = fs::remove_file(&probe);
+    written.map_err(|e| format!("Cannot write to {}: {e}", typed.display()))?;
+    Ok(dir)
+}
+
+/// Removes leftovers from interrupted backups and copies (`till-….db.partial` only, as
+/// a mirror folder may hold other files).
 pub fn cleanup(dir: &Path) {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
-            if entry.file_name().to_string_lossy().ends_with(".partial") {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name
+                .strip_suffix(".partial")
+                .is_some_and(|stem| check_name(stem).is_ok())
+            {
                 let _ = fs::remove_file(entry.path());
             }
         }
@@ -367,13 +449,124 @@ mod tests {
         let names: Vec<_> = list(&dir).unwrap().into_iter().map(|f| f.name).collect();
         assert_eq!(names, vec!["till-2-auto.db", "till-1-auto.db"]);
 
-        check_folder(&usb).unwrap();
+        let usb = prepare_folder(text(&usb), &dir).unwrap();
+        // A copy cut off by pulling the stick out is tidied up by the next one.
+        fs::write(usb.join("till-1-auto.db.partial"), "half").unwrap();
+        fs::write(usb.join("holiday.jpg.partial"), "not ours").unwrap();
         copy_to(&dir, "till-2-auto.db", &usb).unwrap();
         assert!(verify(&usb.join("till-2-auto.db")).unwrap().integrity_ok);
+        assert!(!usb.join("till-1-auto.db.partial").exists());
+        assert!(usb.join("holiday.jpg.partial").exists());
+        let mirrored: Vec<_> = list(&usb).unwrap().into_iter().map(|f| f.name).collect();
+        assert_eq!(mirrored, vec!["till-2-auto.db"]);
 
+        delete(&usb, "till-2-auto.db").unwrap();
         delete(&dir, "till-1-auto.db").unwrap();
         assert_eq!(list(&dir).unwrap().len(), 1);
+        assert!(list(&usb).unwrap().is_empty());
         assert!(delete(&dir, "../till.db").is_err());
+    }
+
+    fn text(path: &Path) -> &str {
+        path.to_str().unwrap()
+    }
+
+    #[test]
+    fn a_mirror_folder_must_be_an_existing_folder_given_in_full() {
+        let tmp = TempDir::new("dirs");
+        let backups = tmp.0.join("backups");
+        fs::create_dir_all(&backups).unwrap();
+        let usb = tmp.0.join("usb");
+        fs::create_dir_all(&usb).unwrap();
+
+        // Canonicalised: a detour through `..` ends at the same folder.
+        let detour = tmp.0.join("backups").join("..").join("usb");
+        assert_eq!(
+            other_dir(text(&detour), &backups).unwrap(),
+            fs::canonicalize(&usb).unwrap()
+        );
+        assert_eq!(
+            other_dir(&format!("  {}  ", text(&usb)), &backups).unwrap(),
+            fs::canonicalize(&usb).unwrap(),
+            "spaces around a typed path are ignored"
+        );
+
+        let missing = tmp.0.join("nowhere");
+        let err = other_dir(text(&missing), &backups).unwrap_err();
+        assert_eq!(
+            err,
+            format!("The folder {} does not exist", missing.display())
+        );
+        assert!(!missing.exists(), "never created by a copy, list or delete");
+
+        let file = tmp.0.join("notes.txt");
+        fs::write(&file, "x").unwrap();
+        assert_eq!(
+            other_dir(text(&file), &backups).unwrap_err(),
+            format!("{} is a file, not a folder", file.display())
+        );
+
+        for relative in ["usb", "backups", ".", "E:", ""] {
+            let err = other_dir(relative, &backups).unwrap_err();
+            assert!(
+                err.starts_with("Type the folder's full path"),
+                "{relative}: {err}"
+            );
+        }
+
+        for own in [backups.clone(), backups.join("inside")] {
+            fs::create_dir_all(&own).unwrap();
+            assert!(
+                other_dir(text(&own), &backups)
+                    .unwrap_err()
+                    .contains("the till's own backups folder"),
+                "{}",
+                own.display()
+            );
+        }
+    }
+
+    #[test]
+    fn test_folder_creates_a_missing_folder_but_not_on_a_file() {
+        let tmp = TempDir::new("prepare");
+        let backups = tmp.0.join("backups");
+        fs::create_dir_all(&backups).unwrap();
+
+        let fresh = tmp.0.join("stick").join("TillBackups");
+        let dir = prepare_folder(text(&fresh), &backups).unwrap();
+        assert!(fresh.is_dir());
+        assert_eq!(dir, fs::canonicalize(&fresh).unwrap());
+        assert!(!fresh.join(".write-test").exists(), "the probe is removed");
+
+        let file = tmp.0.join("notes.txt");
+        fs::write(&file, "x").unwrap();
+        assert!(prepare_folder(text(&file), &backups)
+            .unwrap_err()
+            .ends_with("is a file, not a folder"));
+        assert!(prepare_folder(text(&backups), &backups).is_err());
+        assert!(prepare_folder("TillBackups", &backups).is_err());
+        assert!(
+            !Path::new("TillBackups").exists(),
+            "nothing made beside the app"
+        );
+    }
+
+    /// A drive letter with nothing behind it, as when the USB stick is out.
+    #[cfg(windows)]
+    #[test]
+    fn a_missing_drive_says_it_is_not_connected() {
+        let tmp = TempDir::new("drive");
+        let Some(letter) = (b'D'..=b'Z')
+            .rev()
+            .map(char::from)
+            .find(|l| !Path::new(&format!("{l}:\\")).exists())
+        else {
+            return; // every letter is taken on this machine
+        };
+        let path = format!("{letter}:\\TillBackups");
+        let expected = format!("The backup drive {letter}:\\ is not connected");
+        assert_eq!(other_dir(&path, &tmp.0).unwrap_err(), expected);
+        assert_eq!(prepare_folder(&path, &tmp.0).unwrap_err(), expected);
     }
 
     #[test]

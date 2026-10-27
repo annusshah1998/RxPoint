@@ -608,6 +608,18 @@ export const S = {
     browser:
       'Browser preview: Network mode prints through the development server, e.g. to scripts/fake-printer.mjs. Windows printers need the desktop app.',
   },
+  backupSettings: {
+    title: 'Backups',
+    intro:
+      'Each backup is also copied to this folder, so the records survive if this computer’s disk fails. Use a USB stick that stays plugged in, or a second drive. Saved for this computer only.',
+    folder: 'Backup drive folder',
+    hint: 'For example E:\\TillBackups. Leave empty for none.',
+    test: 'Test folder',
+    testing: 'Testing…',
+    ready: (dir: string) => `Folder ready: ${dir}. The next backup will be copied there.`,
+    browser:
+      'Browser preview: the folder is saved, but folder checks and copies run in the desktop app.',
+  },
   printer: {
     isOff: 'Printing is off',
     printing: 'Printing…',
@@ -661,6 +673,9 @@ export const S = {
     now: 'Back up now',
     working: 'Backing up…',
     done: (name: string) => `Backed up: ${name}`,
+    doneAndCopied: (name: string) => `Backed up: ${name}, and copied to the backup drive.`,
+    doneNotCopied: (name: string, why: string) =>
+      `Backed up: ${name}, but not copied to the backup drive: ${why}`,
     failed: (why: string) => `Backup failed: ${why}`,
     when: 'When',
     kind: 'Kind',
@@ -668,6 +683,32 @@ export const S = {
     size: 'Size',
     result: 'Result',
     ok: 'OK',
+    mirrorColumn: 'Backup drive',
+    copied: 'Copied',
+    notCopied: 'Not copied',
+    mirrorLine: (dir: string, when: string | null) =>
+      when ? `Backup drive: ${dir}. Last copy: ${when}` : `Backup drive: ${dir}. No copy yet.`,
+    noMirror:
+      'No backup drive set. A USB stick or a second drive keeps a copy if this computer’s disk fails (Settings → Backups).',
+    mirrorOverdue: (dir: string) =>
+      `Nothing has been copied to the backup drive (${dir}) for over 3 days. Plug in the USB stick, or check the folder in Settings → Backups. Selling carries on meanwhile.`,
+    lastTry: (why: string) => `Last try: ${why}`,
+    checkColumn: 'Check',
+    check: 'Check',
+    checking: 'Checking…',
+    checkFor: (name: string) => `Check ${name}`,
+    sound: 'Sound',
+    damaged: 'Damaged',
+    soundDetail: (sales: number | null, lastSale: string | null) =>
+      sales === null
+        ? 'Opens and reads correctly.'
+        : sales === 0
+          ? 'Opens and reads correctly; no sales yet.'
+          : `Opens and reads correctly: ${sales.toLocaleString('en-PK')} ${sales === 1 ? 'sale' : 'sales'}${lastSale ? `, the last on ${lastSale}` : ''}.`,
+    damagedDetail: (why: string) => `Don’t restore from this copy: ${why}`,
+    thinned: 'Thinned',
+    thinnedHint: 'Old copies are thinned automatically; this one has been deleted.',
+    mirrorBadge: 'Backup drive not updated',
     kinds: {
       auto: 'Automatic',
       shift: 'Shift close',

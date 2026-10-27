@@ -234,6 +234,16 @@ const deviceSettingsPatchSchema = z
 
 export type DeviceSettingsPatch = z.input<typeof deviceSettingsPatchSchema>;
 
+export const MIRROR_DIR_HINT = 'Type the folder’s full path, such as E:\\TillBackups';
+
+/**
+ * A full folder path: `E:\…` on Windows, a network share `\\server\share\…`, or `/…` on
+ * a developer's Mac or Linux. The desktop app checks the folder itself (backup.rs).
+ */
+export function isFullFolderPath(path: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(path) || /^\\\\[^\\]+\\[^\\]+/.test(path) || path.startsWith('/');
+}
+
 export async function updateDeviceSettings(
   ctx: AppContext,
   input: DeviceSettingsPatch,
@@ -249,6 +259,11 @@ export async function updateDeviceSettings(
     throw new AppError('VALIDATION', 'Enter the printer’s IP address', {
       'printer.host': 'Enter the printer’s IP address',
     });
+  }
+  // An empty box means no mirror folder.
+  after.backup.mirrorDir = after.backup.mirrorDir || null;
+  if (after.backup.mirrorDir && !isFullFolderPath(after.backup.mirrorDir)) {
+    throw new AppError('VALIDATION', MIRROR_DIR_HINT, { 'backup.mirrorDir': MIRROR_DIR_HINT });
   }
   return ctx.db.transaction().execute(async (trx) => {
     await authorizeTx(trx, ctx, 'settings.edit');

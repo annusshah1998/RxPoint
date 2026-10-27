@@ -107,6 +107,10 @@ till's printer, and `scripts/fake-printer.mjs`, which `e2e/printer.spec.ts` prin
 the dev server (`apps/till/dev-printer-bridge.ts`, development only). WebView2's browser
 keys (reload, print, find, zoom, back) are off in the desktop app
 (`apps/till/src-tauri/src/webview.rs`); debug builds keep F12 for the developer tools.
-Left for M2b: the backup mirror folder and the ADRs, then the hardware checklist in
-`docs/m2-design.md` §6.4 (item 10 is the browser-key hand check). No printer or scanner is
-needed to run or test the till.
+The backup mirror is built: Settings → Backups takes a second folder (a USB stick or
+another drive) per till, every good backup is copied there with the same retention, a
+missing drive only warns ("Backup drive not updated" after 3 days, `backupStatus`), and the
+Backups screen has [Check] per backup. Migration `0003-backup-mirror` adds
+`backup_log.mirror_error`. Left for M2b: the ADRs, then the hardware checklist in
+`docs/m2-design.md` §6.4 (item 10 is the browser-key hand check, item 11 the USB stick).
+No printer or scanner is needed to run or test the till.

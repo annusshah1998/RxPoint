@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { useAction, useServices } from '../../app/services';
 import { errorMessage, fieldErrors } from '../../lib/errors';
+import { BackupSettingsCard } from './BackupSettings';
 import { PrinterSettingsCard } from './PrinterSettings';
 import { S } from '../../strings';
 import {
@@ -36,6 +37,7 @@ export function SettingsScreen() {
       <StoreDetailsForm initial={details.data} />
       <CheckoutSettingsForm initial={settings.data} />
       <PrinterSettingsCard />
+      <BackupSettingsCard />
     </div>
   );
 }
