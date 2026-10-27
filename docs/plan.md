@@ -25,15 +25,15 @@ feature must work and be testable without it.
 
 Estimates are rough, at 10–12 hours a week.
 
-| #   | Milestone                         | Scope                                                                                                                                                                                                                                                                                     | Done when                                                                                                              | Est.  | Status   |
-| --- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----- | -------- |
-| M1  | Foundations, catalog, stock       | Repo setup, CI, config, core rules (money, units, pricing, FEFO), SQLite schema and migrations, stock ledger, sync outbox, Tauri app with the Rust database bridge, catalog screens and search, CSV import, opening stock by batch                                                        | A catalog CSV can be imported, current stock entered by batch and expiry, and any item found by brand, generic or salt | 3 wks | **Done** |
-| M2  | Checkout                          | PIN login, roles, shifts with cash count, cash in/out, sale screen with loose quantities, FEFO with batch override, discounts, split payments (cash, card, JazzCash/Easypaisa/Raast, khata), hold/resume, void, returns, 80mm receipt and cash drawer, audit log, automatic local backups | A full day of sales runs on one till                                                                                   | 4 wks | Started  |
-| M3  | Purchasing and stock control      | Suppliers, receiving with TP/discount/bonus, supplier balances and payments, optional purchase orders, returns to supplier, adjustments, stock counts, near-expiry and expired lists, expiry write-off                                                                                    | Stock can be received, returned to the distributor and counted                                                         | 3 wks |          |
-| M4  | Customers, prescriptions, reports | Customers and khata, purchase history, prescription photo and prescriber, controlled-drug register, reports (daily sales, profit by item, cash reconciliation, expiry, dead stock, top sellers, stock value), expiry-loss dashboard                                                       | The single-store till is feature-complete and fully offline                                                            | 3 wks |          |
-| M5  | Pilot release                     | Windows installer, signed auto-updates, setup wizard, receipt settings (name, NTN, address), import from Excel or the current software, error reporting                                                                                                                                   | Running in one real pharmacy                                                                                           | 2 wks |          |
-| M6  | Cloud sync and backup             | Cloud API and PostgreSQL, device registration, two-way sync, cloud backup and restore                                                                                                                                                                                                     | Till data reaches the cloud when online; a dead PC can be restored                                                     | 4 wks |          |
-| M7  | Owner dashboard                   | Sales, profit, stock value, expiry risk, staff activity                                                                                                                                                                                                                                   | The owner checks the store from a phone                                                                                | 3 wks |          |
+| #   | Milestone                         | Scope                                                                                                                                                                                                                                                                                                 | Done when                                                                                                              | Est.  | Status                                 |
+| --- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------- |
+| M1  | Foundations, catalog, stock       | Repo setup, CI, config, core rules (money, units, pricing, FEFO), SQLite schema and migrations, stock ledger, sync outbox, Tauri app with the Rust database bridge, catalog screens and search, CSV import, opening stock by batch                                                                    | A catalog CSV can be imported, current stock entered by batch and expiry, and any item found by brand, generic or salt | 3 wks | **Done**                               |
+| M2  | Checkout                          | PIN login, roles, shifts with cash count, cash in/out, sale screen with loose quantities, FEFO with batch override, discounts, split payments (cash, card, JazzCash/Easypaisa/Raast; khata moved to M4), hold/resume, void, returns, 80mm receipt and cash drawer, audit log, automatic local backups | A full day of sales runs on one till                                                                                   | 4 wks | Built; review and hardware checks left |
+| M3  | Purchasing and stock control      | Suppliers, receiving with TP/discount/bonus, supplier balances and payments, optional purchase orders, returns to supplier, adjustments, stock counts, near-expiry and expired lists, expiry write-off                                                                                                | Stock can be received, returned to the distributor and counted                                                         | 3 wks |                                        |
+| M4  | Customers, prescriptions, reports | Customers and khata, purchase history, prescription photo and prescriber, controlled-drug register, reports (daily sales, profit by item, cash reconciliation, expiry, dead stock, top sellers, stock value), expiry-loss dashboard                                                                   | The single-store till is feature-complete and fully offline                                                            | 3 wks |                                        |
+| M5  | Pilot release                     | Windows installer, signed auto-updates, setup wizard, receipt settings (name, NTN, address), import from Excel or the current software, error reporting                                                                                                                                               | Running in one real pharmacy                                                                                           | 2 wks |                                        |
+| M6  | Cloud sync and backup             | Cloud API and PostgreSQL, device registration, two-way sync, cloud backup and restore                                                                                                                                                                                                                 | Till data reaches the cloud when online; a dead PC can be restored                                                     | 4 wks |                                        |
+| M7  | Owner dashboard                   | Sales, profit, stock value, expiry risk, staff activity                                                                                                                                                                                                                                               | The owner checks the store from a phone                                                                                | 3 wks |                                        |
 
 **Phase 2:** multi-branch (stock transfers, central catalog, consolidated reports),
 FBR POS integration (needed by chains), reorder suggestions, substitutes (same salt and
@@ -97,13 +97,23 @@ printer), and WebView2's browser keys (F5, Ctrl+R, Ctrl+P, Ctrl+F…) are off in
 app (not yet checked by hand on Windows 10 or 11). Each backup is also copied to a
 backup drive (a USB stick or a second drive, set per till in Settings → Backups); a
 missing drive never stops a backup or a sale, and a badge appears when nothing has been
-copied for 3 days. The Backups screen can check any backup file. Still to do for M2 (M2b):
-the ADRs and the hardware checklist (with a USB stick test) once a printer and scanner
-arrive.
+copied for 3 days. The Backups screen can check any backup file.
 
-## Open items carried into M2
+The M2 decisions are recorded in ADRs 0005–0011 (`docs/decisions/`): checkout records and
+signed payments, drafts and idempotent completion, PIN login and scoped approvals,
+printing and the drawer, backups and number floors, the clock guard, and khata in M4.
 
-- Users and PIN login: M1 runs as the owner account created at setup.
+Still to do for M2: a code review of all M2 work, then the merge into `main` (the owner
+first makes `main` the default branch), and the hardware checklist in `m2-design.md` §6.4
+(printer, drawer, scanner, the browser keys on Windows 10 and 11, a USB stick) once a
+printer and scanner arrive.
+
+## Open items after M2
+
 - Tax rates for medicines: unconfirmed (see `compliance-pk.md`); one 0% class is created.
-- Local backups: planned for M2, before any pilot data exists.
-- The till's PC clock: add a warning when it looks wrong (expiry checks depend on it).
+- Before the first installer that carries a new migration: the pre-migration backup
+  (designed, not built; ADR 0009).
+- Before the restore screen (M5): the shared Rust file lock between backup and restore,
+  and refusing a restore when the old WAL files can't be removed (ADR 0009).
+- The shift's Z report is shown but not printed yet (ADR 0008).
+- Owner sign-off on the M2 re-estimate and the open questions in `m2-design.md` §12.

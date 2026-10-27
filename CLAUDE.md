@@ -111,6 +111,11 @@ The backup mirror is built: Settings → Backups takes a second folder (a USB st
 another drive) per till, every good backup is copied there with the same retention, a
 missing drive only warns ("Backup drive not updated" after 3 days, `backupStatus`), and the
 Backups screen has [Check] per backup. Migration `0003-backup-mirror` adds
-`backup_log.mirror_error`. Left for M2b: the ADRs, then the hardware checklist in
-`docs/m2-design.md` §6.4 (item 10 is the browser-key hand check, item 11 the USB stick).
+`backup_log.mirror_error`. The M2 decisions are ADRs 0005–0011 in `docs/decisions/`
+(0012 is reserved for the store network in `docs/counters-design.md`); read the relevant
+one before changing checkout records, drafts, approvals, printing, backups, the clock guard
+or khata. Left for M2: a code review of all M2 work, the merge into `main` (once the owner
+makes it the default branch), and the hardware checklist in `docs/m2-design.md` §6.4
+(item 10 is the browser-key hand check, item 11 the USB stick). Known gaps, recorded in
+ADR 0009: no pre-migration backup yet, and no shared backup/restore file lock in Rust.
 No printer or scanner is needed to run or test the till.
