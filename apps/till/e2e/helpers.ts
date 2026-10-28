@@ -62,6 +62,39 @@ export async function createAugmentin(page: Page, { rx = false }: { rx?: boolean
   await expect(page.getByRole('heading', { name: /Augmentin 625mg/ })).toBeVisible();
 }
 
+/** Calpol 5mg: Tablet, Strip of 10 (barcode 8964000000017), Rs 120 a strip, no stock. */
+export async function createCalpol(page: Page) {
+  await page.getByRole('link', { name: 'Products' }).click();
+  await page.getByRole('button', { name: 'New product' }).click();
+  await page.getByLabel('Brand name').fill('Calpol');
+  await page.getByLabel('Strength', { exact: true }).first().fill('5mg');
+  await page.getByLabel('Generic (salt) 1').fill('Paracetamol');
+  await page.getByLabel('Barcodes Strip').fill('8964000000017');
+  await page.getByLabel('Sale price').fill('120');
+  await page.getByLabel('Controlled drug').selectOption({ label: 'Not controlled' });
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { name: /^Calpol/ })).toBeVisible();
+}
+
+/** Adds a batch on the product screen that is open. */
+export async function addBatch(page: Page, batchNo: string, expiry: string, qty: string) {
+  await page.getByLabel('Batch no.').fill(batchNo);
+  await page.getByLabel('Expiry').fill(expiry);
+  await page.getByLabel('Quantity').fill(qty);
+  await page.getByRole('button', { name: 'Add stock' }).click();
+  // The product's batch list shows it once it is saved.
+  await expect(page.getByRole('cell', { name: batchNo, exact: true })).toBeVisible();
+}
+
+/** Opens a shift and goes to the Sale screen, with the cursor in the scan box. */
+export async function openShift(page: Page) {
+  await page.getByRole('link', { name: 'Shift' }).click();
+  await page.getByRole('button', { name: 'Open shift' }).click();
+  await expect(page.getByRole('heading', { name: 'Shift 1' })).toBeVisible();
+  await page.getByRole('link', { name: 'Sale', exact: true }).click();
+  await expect(page.getByLabel('Scan or search')).toBeFocused();
+}
+
 /** The owner adds someone on the Staff screen. */
 export async function addStaff(page: Page, name: string, role: string, pin: string) {
   await page.getByRole('link', { name: 'Staff' }).click();

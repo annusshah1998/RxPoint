@@ -14,6 +14,7 @@ import {
   settleTenders,
   suggestCash,
   toMajorString,
+  type Cart,
   type Tender,
   type WalletProvider,
 } from '@app/core';
@@ -94,25 +95,31 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
     return true;
   }, stage.kind !== 'done');
 
-  /** Saves the cart, prices it afresh and moves to the step it needs next. */
-  const check = useCallback(async () => {
-    setStage({ kind: 'checking' });
-    await sale.flush();
-    const fresh = await planSale(ctx, sale.cart!);
-    setPlan(fresh);
-    const problems = [
-      ...(fresh.notAvailable ? [fresh.notAvailable] : []),
-      ...Object.values(fresh.fields),
-    ];
-    if (problems.length > 0) setStage({ kind: 'blocked', problems });
-    else if (fresh.confirm.length > 0) setStage({ kind: 'confirm' });
-    else {
-      const discount = fresh.needs.find((n) => n.kind === 'sale.discount');
-      if (discount) setStage({ kind: 'approve', need: discount });
-      else setStage({ kind: 'tender' });
-    }
-    return fresh;
-  }, [ctx, sale]);
+  /**
+   * Saves the cart, prices it afresh and moves to the step it needs next. Pass the cart
+   * when it was changed just now: `sale.cart` still holds the one from before the change.
+   */
+  const check = useCallback(
+    async (changed?: Cart) => {
+      setStage({ kind: 'checking' });
+      await sale.flush();
+      const fresh = await planSale(ctx, changed ?? sale.cart!);
+      setPlan(fresh);
+      const problems = [
+        ...(fresh.notAvailable ? [fresh.notAvailable] : []),
+        ...Object.values(fresh.fields),
+      ];
+      if (problems.length > 0) setStage({ kind: 'blocked', problems });
+      else if (fresh.confirm.length > 0) setStage({ kind: 'confirm' });
+      else {
+        const discount = fresh.needs.find((n) => n.kind === 'sale.discount');
+        if (discount) setStage({ kind: 'approve', need: discount });
+        else setStage({ kind: 'tender' });
+      }
+      return fresh;
+    },
+    [ctx, sale],
+  );
 
   useEffect(() => {
     void check();
@@ -341,8 +348,9 @@ export function PayDialog({ sale, onClose }: { sale: SaleState; onClose: () => v
               variant="primary"
               autoFocus
               onClick={async () => {
-                sale.update((c) => plan.confirm.reduce((acc, x) => confirmInDate(acc, x.key), c));
-                await check();
+                const next = plan.confirm.reduce((acc, x) => confirmInDate(acc, x.key), cart);
+                sale.update(() => next);
+                await check(next);
               }}
             >
               {S.pay.inDateYes}

@@ -371,6 +371,9 @@ function ScanBox({
       // A scan types fast and presses Enter before the search catches up: search afresh.
       const pick = hit ?? (term === debounced ? (results[active] ?? null) : null);
       if (await onAdd(text, pick)) setText('');
+      // An unknown barcode stays in the box so a typo can be fixed, but selected: the next
+      // scan replaces it instead of being typed onto its end.
+      else if (looksLikeBarcode(term)) inputRef.current?.select();
     } finally {
       setBusy(false);
     }

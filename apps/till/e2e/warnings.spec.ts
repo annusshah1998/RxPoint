@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { createAugmentin, setUpTill } from './helpers';
+import { addBatch, createAugmentin, createCalpol, openShift, setUpTill } from './helpers';
 
 // A USB scanner types a few ms per key and presses Enter; 60 ms a key is a person typing
 // the same digits.
@@ -30,34 +30,13 @@ async function scanBurst(page: Page, code: string) {
   await cdp.detach();
 }
 
-/** Calpol 5mg: Tablet, Strip of 10 (barcode 8964000000017), Rs 120 a strip, no stock. */
-async function createCalpol(page: Page) {
-  await page.getByRole('link', { name: 'Products' }).click();
-  await page.getByRole('button', { name: 'New product' }).click();
-  await page.getByLabel('Brand name').fill('Calpol');
-  await page.getByLabel('Strength', { exact: true }).first().fill('5mg');
-  await page.getByLabel('Generic (salt) 1').fill('Paracetamol');
-  await page.getByLabel('Barcodes Strip').fill(CALPOL_STRIP);
-  await page.getByLabel('Sale price').fill('120');
-  await page.getByLabel('Controlled drug').selectOption({ label: 'Not controlled' });
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('heading', { name: /^Calpol/ })).toBeVisible();
-}
-
-async function openShiftAndSell(page: Page) {
-  await page.getByRole('link', { name: 'Shift' }).click();
-  await page.getByRole('button', { name: 'Open shift' }).click();
-  await expect(page.getByRole('heading', { name: 'Shift 1' })).toBeVisible();
-  await page.getByRole('link', { name: 'Sale', exact: true }).click();
-}
-
 test('a barcode in the quantity or discount box adds that item and leaves the line alone', async ({
   page,
 }) => {
   const problems = await setUpTill(page);
   await createAugmentin(page);
   await createCalpol(page);
-  await openShiftAndSell(page);
+  await openShift(page);
 
   const scan = page.getByLabel('Scan or search');
   const augmentin = page.getByRole('row', { name: /Augmentin 625mg/ });
@@ -135,7 +114,7 @@ test('a scan while paying is ignored; a barcode typed into cash must be confirme
 }) => {
   const problems = await setUpTill(page);
   await createAugmentin(page);
-  await openShiftAndSell(page);
+  await openShift(page);
   const scan = page.getByLabel('Scan or search');
   await scanBurst(page, AUGMENTIN_BOX);
   await expect(page.getByRole('row', { name: /Augmentin 625mg/ })).toContainText('1 Box');
@@ -184,5 +163,60 @@ test('a scan while paying is ignored; a barcode typed into cash must be confirme
   await cash.press('Enter');
   await expect(page.getByTestId('change-due')).toHaveText('Rs 383.00');
 
+  expect(problems).toEqual([]);
+});
+
+test('past zero and expired stock on record warn but let the sale go on; an unknown barcode is reported', async ({
+  page,
+}) => {
+  const problems = await setUpTill(page);
+  // Augmentin: a strip in date and a strip long expired. Calpol: only an expired strip.
+  await createAugmentin(page);
+  await addBatch(page, 'AU0120', '01/2020', '6');
+  await addBatch(page, 'AU1299', '12/2099', '6');
+  await createCalpol(page);
+  await addBatch(page, 'CP0120', '01/2020', '10');
+  await openShift(page);
+  const scan = page.getByLabel('Scan or search');
+
+  // A barcode the till doesn't know is reported. The next scan replaces it in the scan box
+  // rather than being typed onto the end of it.
+  await scanBurst(page, '8960000000009');
+  await expect(page.getByText('No item has the barcode 8960000000009')).toBeVisible();
+  await scanBurst(page, CALPOL_STRIP);
+  const calpol = page.getByRole('row', { name: /Calpol 5mg/ });
+  await expect(calpol).toContainText('1 Strip');
+  await expect(scan).toHaveValue('');
+  await expect(page.getByText(/No item has the barcode/)).toBeHidden();
+
+  // Selling past what is recorded, all of it expired: amber and red chips, no block.
+  await expect(calpol).toContainText('Stock shows 0 Tablets — selling 1 Strip');
+  await expect(calpol).toContainText('Expired stock on record');
+  // Two strips of Augmentin with one in date on record.
+  await scan.fill('2s*augm');
+  await scan.press('Enter');
+  const augmentin = page.getByRole('row', { name: /Augmentin 625mg/ });
+  await expect(augmentin).toContainText('Stock shows 1 Strip — selling 2 Strips');
+  await expect(augmentin).toContainText('Expired stock on record');
+  await expect(page.getByTestId('sale-total')).toContainText('Rs 992.00');
+
+  // Pay asks once for both lines, all expired and some in date, before taking money.
+  await page.keyboard.press('F9');
+  const pay = page.getByRole('dialog', { name: 'Pay' });
+  await expect(pay.getByRole('heading', { name: 'Check the packs are in date' })).toBeVisible();
+  await expect(pay).toContainText(
+    'Calpol 5mg: 0 Tablets in date on record; selling 1 Strip more. Expired on record: CP0120 (Jan 2020) 1 Strip.',
+  );
+  await expect(pay).toContainText(
+    'Augmentin 625mg: 1 Strip in date on record; selling 1 Strip more. Expired on record: AU0120 (Jan 2020) 1 Strip.',
+  );
+  const inDate = pay.getByRole('button', { name: 'Yes, they are in date' });
+  await expect(inDate).toBeFocused();
+  // One Enter answers it; the cash box is next, and Enter takes exact cash.
+  await page.keyboard.press('Enter');
+  await expect(pay.getByLabel('Cash received')).toBeFocused();
+  await expect(page.getByTestId('pay-total')).toHaveText('Rs 992.00');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Invoice T1-000001', { exact: true })).toBeVisible();
   expect(problems).toEqual([]);
 });
